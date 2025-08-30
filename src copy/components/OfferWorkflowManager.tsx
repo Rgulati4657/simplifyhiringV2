@@ -327,83 +327,35 @@ export function OfferWorkflowManager() {
     }
   };
 
-  // const previewOfferForHr = async (workflow: OfferWorkflow) => {
-  //   const pdfFileId = workflow.offer_details?.pdf_file_id;
-  //   if (!pdfFileId) {
-  //     toast({
-  //       title: "Preview Unavailable",
-  //       description: "The offer letter PDF could not be found for this workflow.",
-  //       variant: "destructive",
-  //     });
-  //     return;
-  //   }
-
-  //   setIsPreviewing(true);
-  //   try {
-  //     const blob = await offerApiService.downloadFile(pdfFileId);
-  //     const url = URL.createObjectURL(blob);
-  //     setHrPreviewPdfUrl(url);
-  //     setShowHrPreviewDialog(true);
-  //   } catch (error) {
-  //     console.error("Error generating HR preview:", error);
-  //     toast({
-  //       title: "Preview Failed",
-  //       description: "Could not load the offer letter for preview.",
-  //       variant: "destructive",
-  //     });
-  //   } finally {
-  //     setIsPreviewing(false);
-  //   }
-  // };
-
-  // FIND THE OLD `previewOfferForHr` FUNCTION AND REPLACE IT WITH THIS NEW, CORRECTED VERSION
-
-const previewOfferForHr = async (workflow: OfferWorkflow) => {
-    // Step 1: Get the permanent file path from the workflow object.
-    // We saved this when we generated the offer.
-    const offerLetterPath = workflow.offer_letter_url;
-
-    if (!offerLetterPath) {
+  const previewOfferForHr = async (workflow: OfferWorkflow) => {
+    const pdfFileId = workflow.offer_details?.pdf_file_id;
+    if (!pdfFileId) {
       toast({
         title: "Preview Unavailable",
-        description: "The offer letter URL was not found for this workflow.",
+        description: "The offer letter PDF could not be found for this workflow.",
         variant: "destructive",
       });
       return;
     }
-    
-    // The full URL is stored, but we only need the path for creating a new signed URL.
-    // Let's extract the path from the full public URL.
-    const urlParts = offerLetterPath.split('/');
-    const filePath = urlParts.slice(urlParts.indexOf('offer-letters') + 1).join('/');
 
     setIsPreviewing(true);
     try {
-      // Step 2: Create a NEW, secure, temporary signed URL for the HR to view the file.
-      const { data, error } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 300); // 300 seconds = 5 minutes validity
-
-      if (error) {
-        throw new Error(`Could not create signed URL for HR preview: ${error.message}`);
-      }
-
-      // Step 3: Use this new signed URL to show the preview.
-      setHrPreviewPdfUrl(data.signedUrl);
-      setShowHrDialog(true); // Assuming you want to show the main HR dialog
+      const blob = await offerApiService.downloadFile(pdfFileId);
+      const url = URL.createObjectURL(blob);
+      setHrPreviewPdfUrl(url);
       setShowHrPreviewDialog(true);
-
     } catch (error) {
       console.error("Error generating HR preview:", error);
       toast({
         title: "Preview Failed",
-        description: error instanceof Error ? error.message : "Could not load the offer letter for preview.",
+        description: "Could not load the offer letter for preview.",
         variant: "destructive",
       });
     } finally {
       setIsPreviewing(false);
     }
-};
+  };
+
 
   const advanceWorkflow = async (workflowId: string, stepData: any = {}) => {
     setActionLoading(workflowId);
@@ -755,71 +707,28 @@ const previewOfferForHr = async (workflow: OfferWorkflow) => {
     }
   };
 
-//  const approveOffer = async (workflow: OfferWorkflow, comments: string) => {
-//     try {
-//         const { data: { user } } = await supabase.auth.getUser();
-        
-//         await advanceWorkflow(workflow.id, {
-//             hr_approval_status: 'approved',
-//             hr_comments: comments, // Use the comments passed from the dialog
-//             hr_approved_by: user?.id,
-//             hr_approved_at: new Date().toISOString()
-//         });
-        
-//         setShowHrDialog(false); // Close the dialog on success
-//     } catch (error) {
-//       console.error('Error approving offer:', error);
-//       toast({
-//         title: "Error",
-//         description: "Failed to approve offer",
-//         variant: "destructive",
-//       });
-//     }
-//   };
-
-// PASTE THIS REVISED FUNCTION INTO YOUR OfferWorkflowManager.tsx FILE
-
  const approveOffer = async (workflow: OfferWorkflow, comments: string) => {
-    setActionLoading(workflow.id);
     try {
         const { data: { user } } = await supabase.auth.getUser();
-
-        // Step 1: Update the 'offers' table.
-        // Find the offer record and change its status from 'draft' to 'approved'.
-        const { error: offerUpdateError } = await supabase
-          .from('offers')
-          .update({ 
-            status: 'approved',
-            updated_at: new Date().toISOString() 
-          })
-          .eq('job_application_id', workflow.job_application_id);
-
-        if (offerUpdateError) {
-          throw new Error(`Could not update the 'offers' table: ${offerUpdateError.message}`);
-        }
         
-        // Step 2: Advance the workflow to the next step (Candidate Review).
-        // This is your existing logic, which works perfectly.
         await advanceWorkflow(workflow.id, {
             hr_approval_status: 'approved',
-            hr_comments: comments,
+            hr_comments: comments, // Use the comments passed from the dialog
             hr_approved_by: user?.id,
             hr_approved_at: new Date().toISOString()
         });
         
         setShowHrDialog(false); // Close the dialog on success
-        await fetchWorkflows(); // Refresh the list to show the new status
     } catch (error) {
       console.error('Error approving offer:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to approve offer",
+        description: "Failed to approve offer",
         variant: "destructive",
       });
-    } finally {
-        setActionLoading(null);
     }
   };
+
   const rejectOffer = async (workflow: OfferWorkflow, comments: string) => {
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -897,218 +806,139 @@ const requestRevision = async (workflow: OfferWorkflow, comments: string) => {
 };
 
   // MERGED: This is your partner's superior, bug-free version of the function
-  // const sendToCandidate = async (workflow: OfferWorkflow) => {
-  //   setActionLoading(workflow.id);
-    
-  //   try {
-  //     // FIX: Directly refetch the workflow from the database before sending.
-  //     const { data: latestWorkflow, error: fetchError } = await supabase
-  //       .from('offer_workflow')
-  //       .select(`
-  //         *,
-  //         job_applications (
-  //           candidates (
-  //             profiles ( first_name, last_name, email )
-  //           ),
-  //           jobs ( title )
-  //         )
-  //       `)
-  //       .eq('id', workflow.id)
-  //       .single();
-
-  //     if (fetchError || !latestWorkflow) {
-  //       console.error("Fetch Error:", fetchError);
-  //       throw new Error("Could not fetch the latest workflow details before sending.");
-  //     }
-
-  //     const pdfFileId = latestWorkflow.offer_details?.pdf_file_id;
-
-  //     if (!pdfFileId) {
-  //       toast({
-  //         title: "No Offer Letter",
-  //         description: "The latest version of the offer letter could not be found.",
-  //         variant: "destructive"
-  //       });
-  //       setActionLoading(null);
-  //       return;
-  //     }
-
-  //     const candidate = latestWorkflow.job_applications?.candidates?.profiles;
-  //     const job = latestWorkflow.job_applications?.jobs;
-
-  //     if (!candidate || !job || !candidate.email) {
-  //       throw new Error('Missing latest candidate or job data for sending the offer.');
-  //     }
-
-  //     const pdfBlob = await offerApiService.downloadFile(pdfFileId);
-
-  //     const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, {
-  //       type: 'application/pdf'
-  //     });
-
-  //     const emailContent = generateOfferEmailContent(
-  //       `${candidate.first_name} ${candidate.last_name}`,
-  //       job.title || 'the position'
-  //     );
-
-  //     const response = await offerApiService.sendOfferLetter({
-  //       pdf_file: pdfFile,
-  //       email_data: {
-  //         emails: [candidate.email],
-  //         subject: `Job Offer - ${job.title}`,
-  //         html_content: emailContent
-  //       }
-  //     });
-
-  //     setEmailRequestId(response.request_id);
-      
-  //     try {
-  //       const { data: currentOffer, error: getCurrentOfferError } = await supabase
-  //         .from('offers')
-  //         .select('id, logs')
-  //         .eq('job_application_id', workflow.job_application_id)
-  //         .single();
-
-  //       if (!getCurrentOfferError && currentOffer) {
-  //         const existingLogs = currentOffer.logs || [];
-  //         const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
-  //           (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
-          
-  //         await supabase
-  //           .from('offers')
-  //           .update({
-  //             status: 'sent',
-  //             sent_at: new Date().toISOString(),
-  //             logs: JSON.stringify([
-  //               ...updatedLogs,
-  //               {
-  //                 timestamp: new Date().toISOString(),
-  //                 action: 'offer_sent',
-  //                 email_request_id: response.request_id,
-  //                 recipient: candidate.email
-  //               }
-  //             ]),
-  //             updated_at: new Date().toISOString()
-  //           } as any)
-  //           .eq('id', currentOffer.id);
-  //       }
-  //     } catch (offerError) {
-  //       console.error('Error updating offers table:', offerError);
-  //     }
-      
-  //     await advanceWorkflow(workflow.id, {
-  //       offer_letter_url: pdfFileId,
-  //       sent_to_candidate_at: new Date().toISOString(),
-  //       candidate_notification_sent: true,
-  //       logs: [
-  //         ...(latestWorkflow.logs || []),
-  //         {
-  //           timestamp: new Date().toISOString(),
-  //           action: 'offer_sent',
-  //           email_request_id: response.request_id,
-  //           recipient: candidate.email
-  //         }
-  //       ]
-  //     });
-
-  //     toast({
-  //       title: "Offer Sent",
-  //       description: "Offer letter has been sent to the candidate.",
-  //     });
-
-  //     setShowEmailDialog(true);
-      
-  //   } catch (error) {
-  //     console.error('Error sending offer:', error);
-  //     toast({
-  //       title: "Send Failed",
-  //       description: error instanceof Error ? error.message : "Failed to send offer to candidate",
-  //       variant: "destructive",
-  //     });
-  //   } finally {
-  //     setActionLoading(null);
-  //   }
-  // };
-// FIND THE OLD `sendToCandidate` AND REPLACE IT WITH THIS FINAL, SECURE VERSION
-
-const sendToCandidate = async (workflow: OfferWorkflow) => {
+  const sendToCandidate = async (workflow: OfferWorkflow) => {
     setActionLoading(workflow.id);
     
     try {
-      // Step 1: Fetch latest workflow data.
+      // FIX: Directly refetch the workflow from the database before sending.
       const { data: latestWorkflow, error: fetchError } = await supabase
         .from('offer_workflow')
-        .select(`*, job_applications (candidates (profiles (first_name, last_name, email)), jobs (title))`)
+        .select(`
+          *,
+          job_applications (
+            candidates (
+              profiles ( first_name, last_name, email )
+            ),
+            jobs ( title )
+          )
+        `)
         .eq('id', workflow.id)
         .single();
 
       if (fetchError || !latestWorkflow) {
-        throw new Error("Could not fetch latest workflow details.");
+        console.error("Fetch Error:", fetchError);
+        throw new Error("Could not fetch the latest workflow details before sending.");
       }
 
-      const offerLetterUrl = latestWorkflow.offer_letter_url;
-      if (!offerLetterUrl) {
-        toast({ title: "No Offer Letter", description: "Offer letter URL not found.", variant: "destructive" });
+      const pdfFileId = latestWorkflow.offer_details?.pdf_file_id;
+
+      if (!pdfFileId) {
+        toast({
+          title: "No Offer Letter",
+          description: "The latest version of the offer letter could not be found.",
+          variant: "destructive"
+        });
         setActionLoading(null);
         return;
       }
 
-      // ====== THE FIX IS HERE ======
-      // We can't fetch a private file from a public URL.
-      // We must create a temporary SIGNED URL to download the file securely.
-
-      // First, extract the file path from the full URL saved in the DB.
-      const urlParts = new URL(offerLetterUrl);
-      const filePath = urlParts.pathname.substring(urlParts.pathname.indexOf('offer-letters/') + 'offer-letters/'.length);
-
-      // Now, create a signed URL that is valid for 60 seconds.
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 60); // 60 seconds is enough to download
-
-      if (signedUrlError) {
-        throw new Error(`Could not create signed URL for download: ${signedUrlError.message}`);
-      }
-
-      // Step 2: Use this new, secure signed URL to download the file.
-      const responseFile = await fetch(signedUrlData.signedUrl);
-      if (!responseFile.ok) {
-        throw new Error("Could not download the offer letter using the signed URL.");
-      }
-      const pdfBlob = await responseFile.blob();
-      // ===========================
-
       const candidate = latestWorkflow.job_applications?.candidates?.profiles;
       const job = latestWorkflow.job_applications?.jobs;
-      if (!candidate || !job || !candidate.email) throw new Error('Missing candidate or job data.');
 
-      const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, { type: 'application/pdf' });
+      if (!candidate || !job || !candidate.email) {
+        throw new Error('Missing latest candidate or job data for sending the offer.');
+      }
 
-      // (Rest of the logic is the same)
-      const emailContent = generateOfferEmailContent(`${candidate.first_name} ${candidate.last_name}`, job.title || 'the position');
+      const pdfBlob = await offerApiService.downloadFile(pdfFileId);
+
+      const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, {
+        type: 'application/pdf'
+      });
+
+      const emailContent = generateOfferEmailContent(
+        `${candidate.first_name} ${candidate.last_name}`,
+        job.title || 'the position'
+      );
+
       const response = await offerApiService.sendOfferLetter({
         pdf_file: pdfFile,
-        email_data: { emails: [candidate.email], subject: `Job Offer - ${job.title}`, html_content: emailContent }
+        email_data: {
+          emails: [candidate.email],
+          subject: `Job Offer - ${job.title}`,
+          html_content: emailContent
+        }
       });
 
       setEmailRequestId(response.request_id);
-      await supabase.from('offers').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('job_application_id', workflow.job_application_id);
-      await advanceWorkflow(workflow.id, { sent_to_candidate_at: new Date().toISOString(), candidate_notification_sent: true });
+      
+      try {
+        const { data: currentOffer, error: getCurrentOfferError } = await supabase
+          .from('offers')
+          .select('id, logs')
+          .eq('job_application_id', workflow.job_application_id)
+          .single();
 
-      toast({ title: "Offer Sent", description: "Offer letter has been sent to the candidate." });
+        if (!getCurrentOfferError && currentOffer) {
+          const existingLogs = currentOffer.logs || [];
+          const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
+            (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
+          
+          await supabase
+            .from('offers')
+            .update({
+              status: 'sent',
+              sent_at: new Date().toISOString(),
+              logs: JSON.stringify([
+                ...updatedLogs,
+                {
+                  timestamp: new Date().toISOString(),
+                  action: 'offer_sent',
+                  email_request_id: response.request_id,
+                  recipient: candidate.email
+                }
+              ]),
+              updated_at: new Date().toISOString()
+            } as any)
+            .eq('id', currentOffer.id);
+        }
+      } catch (offerError) {
+        console.error('Error updating offers table:', offerError);
+      }
+      
+      await advanceWorkflow(workflow.id, {
+        offer_letter_url: pdfFileId,
+        sent_to_candidate_at: new Date().toISOString(),
+        candidate_notification_sent: true,
+        logs: [
+          ...(latestWorkflow.logs || []),
+          {
+            timestamp: new Date().toISOString(),
+            action: 'offer_sent',
+            email_request_id: response.request_id,
+            recipient: candidate.email
+          }
+        ]
+      });
+
+      toast({
+        title: "Offer Sent",
+        description: "Offer letter has been sent to the candidate.",
+      });
+
       setShowEmailDialog(true);
       
     } catch (error) {
       console.error('Error sending offer:', error);
       toast({
         title: "Send Failed",
-        description: error instanceof Error ? error.message : "Failed to send offer.",
+        description: error instanceof Error ? error.message : "Failed to send offer to candidate",
         variant: "destructive",
       });
     } finally {
       setActionLoading(null);
     }
   };
+
 
   const checkEmailStatus = async (requestId: string) => {
     try {
@@ -1531,7 +1361,7 @@ case 'hr_approval':
         variant="outline"
         size="sm"
         onClick={() => previewOfferForHr(workflow)}
-        disabled={isPreviewing || !workflow.offer_letter_url}
+        disabled={isPreviewing || !workflow.offer_details?.pdf_file_id}
       >
         <Eye className="w-4 h-4 mr-2" />
         {isPreviewing ? 'Loading...' : 'Preview'}
@@ -1581,130 +1411,7 @@ case 'hr_approval':
     return stepObj ? stepObj.step : 1;
   };
   
-// const generateOfferWithFields = async () => {
-//     if (!templateFile || !selectedWorkflowForOffer) {
-//       toast({
-//         title: "Error",
-//         description: "Template file or workflow not found",
-//         variant: "destructive"
-//       });
-//       return;
-//     }
-
-//     setGeneratingOffer(true);
-//     try {
-//       // --- DEBUGGING STEP: Check the user session RIGHT BEFORE UPLOAD ---
-//       const { data: { session } } = await supabase.auth.getSession();
-//       console.log("Current Supabase session before upload:", session);
-
-//       if (!session) {
-//         throw new Error("User is not authenticated. Please log in again.");
-//       }
-//       // --- END OF DEBUGGING STEP ---
-
-
-//       // Step 1: Generate the PDF file content using the service.
-//       const response = await offerApiService.generateOfferLetter({
-//         template_file: templateFile,
-//         data: fieldValues,
-//         output_format: 'pdf'
-//       });
-
-//       if (!response.success || !response.files?.pdf) {
-//         throw new Error("API service did not return a valid PDF file ID.");
-//       }
-
-//       const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-//       if (!pdfBlob) {
-//         throw new Error("Failed to download the generated PDF blob.");
-//       }
-
-//       const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-
-//       // Step 3: Upload the PDF to our Supabase bucket with `upsert: true`.
-//       const { error: uploadError } = await supabase.storage
-//         .from('offer-letters')
-//         .upload(filePath, pdfBlob, {
-//           contentType: 'application/pdf',
-//           upsert: true
-//         });
-
-//       if (uploadError) {
-//         throw new Error(`Failed to upload to Supabase bucket: ${uploadError.message}`);
-//       }
-
-//       // ... (rest of the function remains the same) ...
-
-//       const { data: urlData } = supabase.storage
-//         .from('offer-letters')
-//         .getPublicUrl(filePath);
-
-//       const supabaseFileUrl = urlData.publicUrl;
-
-//       let formattedStartDate = null;
-//       if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-//         const parts = fieldValues.start_date.split(/[/.-]/);
-//         if (parts.length === 3) {
-//             formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-//         }
-//       }
-
-//       const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-//       const salaryAmount = parseFloat(salaryString) || 0;
-      
-//       const offerDataForTable = {
-//         job_application_id: selectedWorkflowForOffer.job_application_id,
-//         salary_amount: salaryAmount,
-//         currency: fieldValues.currency || 'USD',
-//         start_date: formattedStartDate,
-//         benefits: fieldValues.benefits || [],
-//         offer_letter_url: supabaseFileUrl,
-//         status: 'draft' as const,
-//       };
-
-//       const { error: offerError } = await supabase
-//         .from('offers')
-//         .upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      
-//       if (offerError) {
-//         throw new Error(`Failed to save to 'offers' table: ${offerError.message}`);
-//       }
-
-//       const { error: workflowError } = await supabase
-//         .from('offer_workflow')
-//         .update({
-//           offer_letter_url: supabaseFileUrl,
-//           offer_details: { ...fieldValues },
-//           offer_generated_at: new Date().toISOString(),
-//           updated_at: new Date().toISOString()
-//         })
-//         .eq('id', selectedWorkflowForOffer.id);
-
-//       if (workflowError) {
-//         throw new Error(`Failed to update 'offer_workflow': ${workflowError.message}`);
-//       }
-      
-//       setPreviewPdfUrl(supabaseFileUrl);
-//       setGeneratedOfferData(fieldValues);
-
-//       setShowFieldsDialog(false);
-//       setShowPreviewDialog(true);
-      
-//     } catch (error) {
-//       console.error('Error in generateOfferWithFields:', error);
-//       toast({
-//         title: "Generation Failed",
-//         description: error instanceof Error ? error.message : "An unknown error occurred",
-//         variant: "destructive",
-//       });
-//     } finally {
-//       setGeneratingOffer(false);
-//     }
-// };
-
-// PASTE THIS NEW VERSION OF generateOfferWithFields
-
-const generateOfferWithFields = async () => {
+  const generateOfferWithFields = async () => {
     if (!templateFile || !selectedWorkflowForOffer) {
       toast({
         title: "Error",
@@ -1714,92 +1421,143 @@ const generateOfferWithFields = async () => {
       return;
     }
 
-    setGeneratingOffer(true);
     try {
-      // (Previous steps to generate blob and get filePath remain the same)
+      setGeneratingOffer(true);
+
+      const offerData = {
+        candidate_name: fieldValues.candidate_name || '',
+        position: fieldValues.position || '',
+        salary: fieldValues.salary || '',
+        start_date: fieldValues.start_date || '',
+        company_name: fieldValues.company_name || '',
+        ...fieldValues
+      };
+
       const response = await offerApiService.generateOfferLetter({
         template_file: templateFile,
-        data: fieldValues,
-        output_format: 'pdf'
+        data: offerData,
+        output_format: 'both'
       });
-      if (!response.success || !response.files?.pdf) throw new Error("API service did not return a valid PDF file ID.");
-      const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-      if (!pdfBlob) throw new Error("Failed to download the generated PDF blob.");
-      const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('offer-letters')
-        .upload(filePath, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: true
+
+      if (response.success) {
+        let pdfFile: Blob | null = null;
+        let sessionPdfUrl: string | null = null;
+
+        try {
+          if (response.files?.pdf) {
+            pdfFile = await offerApiService.downloadFile(response.files.pdf);
+            if (pdfFile) {
+              sessionPdfUrl = URL.createObjectURL(pdfFile);
+            }
+          }
+
+          try {
+            const salaryString = fieldValues.salary?.replace(/[^0-9.-]+/g, '') || '0';
+            const salaryAmount = parseFloat(salaryString);
+            
+            const offerRecord = {
+              job_application_id: selectedWorkflowForOffer.job_application_id,
+              salary_amount: salaryAmount > 0 ? salaryAmount : 50000,
+              currency: fieldValues.currency || 'USD',
+              start_date: fieldValues.start_date ? new Date(fieldValues.start_date).toISOString() : null,
+              offer_letter_url: response.files?.pdf || null,
+              status: 'draft' as const,
+              benefits: fieldValues.benefits ? 
+                (typeof fieldValues.benefits === 'string' ? [fieldValues.benefits] : Array.isArray(fieldValues.benefits) ? fieldValues.benefits : []) : 
+                [],
+              signing_bonus: fieldValues.signing_bonus ? parseFloat(String(fieldValues.signing_bonus).replace(/[^0-9.-]+/g, '')) : null,
+              equity_percentage: fieldValues.equity_percentage ? parseFloat(String(fieldValues.equity_percentage)) : null,
+              probation_period_months: fieldValues.probation_period_months ? parseInt(String(fieldValues.probation_period_months)) : null,
+              notice_period_days: fieldValues.notice_period_days ? parseInt(String(fieldValues.notice_period_days)) : null,
+              session_pdf_url: sessionPdfUrl,
+              logs: JSON.stringify([{
+                timestamp: new Date().toISOString(),
+                action: 'offer_generated',
+                api_request_id: response.request_id,
+                session_pdf_url: sessionPdfUrl,
+                storage_url: response.files?.pdf
+              }]),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+
+            const { data: newOffer, error: createError } = await supabase
+              .from('offers')
+              .insert(offerRecord as any)
+              .select()
+              .single();
+
+            if (!createError && newOffer) {
+              try {
+                const expirationDate = new Date();
+                expirationDate.setDate(expirationDate.getDate() + 7);
+                
+                await supabase
+                  .from('offers')
+                  .update({
+                    expires_at: expirationDate.toISOString(),
+                    updated_at: new Date().toISOString()
+                  } as any)
+                  .eq('id', newOffer.id);
+              } catch (expirationError) {
+                console.error('Error in setting expiration:', expirationError);
+              }
+            }
+          } catch (offerError) {
+            console.error('Error handling offer record:', offerError);
+          }
+        } catch (fileError) {
+          console.error('Error handling files:', fileError);
+        }
+
+        const { error: updateError } = await supabase
+          .from('offer_workflow')
+          .update({
+            generated_offer_content: JSON.stringify(fieldValues),
+            offer_details: {
+              ...fieldValues,
+              pdf_file_id: response.files?.pdf,
+              docx_file_id: response.files?.docx,
+              offer_letter_url: response.files?.pdf,
+              session_pdf_url: sessionPdfUrl,
+              api_request_id: response.request_id
+            },
+            offer_generated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedWorkflowForOffer.id);
+
+        if (updateError) console.error('Error updating workflow:', updateError);
+
+        setGeneratedOfferUrl(sessionPdfUrl);
+        setGeneratedOfferData({
+          ...fieldValues,
+          pdf_file_id: response.files?.pdf,
+          docx_file_id: response.files?.docx,
+          offer_letter_url: response.files?.pdf,
+          session_pdf_url: sessionPdfUrl,
+          api_request_id: response.request_id
         });
-      if (uploadError) throw new Error(`Failed to upload to Supabase bucket: ${uploadError.message}`);
+        setPreviewPdfUrl(sessionPdfUrl);
 
-      // ====== THE FIX IS HERE: Create a SIGNED URL instead of a Public URL ======
-      // This URL will be valid for 300 seconds (5 minutes)
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 300); 
-      
-      if (signedUrlError) {
-        throw new Error(`Could not create signed URL: ${signedUrlError.message}`);
+        setShowFieldsDialog(false);
+        setShowPreviewDialog(true);
+      } else {
+        throw new Error(response.message || 'Failed to generate offer letter');
       }
-      const securePreviewUrl = signedUrlData.signedUrl;
-      // =======================================================================
-      
-      // We still save the PERMANENT path in the database for long-term access
-      const permanentDbUrl = supabase.storage.from('offer-letters').getPublicUrl(filePath).data.publicUrl;
-
-      // (Database saving logic remains the same, but uses permanentDbUrl)
-      let formattedStartDate = null;
-      if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-          const parts = fieldValues.start_date.split(/[/.-]/);
-          if (parts.length === 3) formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-      const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-      const salaryAmount = parseFloat(salaryString) || 0;
-      const offerDataForTable = {
-        job_application_id: selectedWorkflowForOffer.job_application_id,
-        salary_amount: salaryAmount,
-        currency: fieldValues.currency || 'USD',
-        start_date: formattedStartDate,
-        benefits: fieldValues.benefits || [],
-        offer_letter_url: permanentDbUrl, // Save the permanent path
-        status: 'draft' as const,
-      };
-      const { error: offerError } = await supabase.from('offers').upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      if (offerError) throw new Error(`Failed to save to 'offers' table: ${offerError.message}`);
-      
-      const { error: workflowError } = await supabase.from('offer_workflow').update({
-          offer_letter_url: permanentDbUrl, // Save the permanent path
-          offer_details: { ...fieldValues },
-          offer_generated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-      }).eq('id', selectedWorkflowForOffer.id);
-      if (workflowError) throw new Error(`Failed to update 'offer_workflow': ${workflowError.message}`);
-      
-      // Use the SECURE, TEMPORARY signed URL for the preview
-      setPreviewPdfUrl(securePreviewUrl);
-      setGeneratedOfferData(fieldValues);
-
-      setShowFieldsDialog(false);
-      setShowPreviewDialog(true);
-      
     } catch (error) {
       console.error('Error in generateOfferWithFields:', error);
       toast({
         title: "Generation Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        description: error instanceof Error ? error.message : "Failed to generate offer letter",
         variant: "destructive",
       });
     } finally {
       setGeneratingOffer(false);
     }
-};
+  };
 
-// PASTE THIS NEW VERSION OF regenerateOfferWithChanges
-
-const regenerateOfferWithChanges = async () => {
+  const regenerateOfferWithChanges = async () => {
     if (!templateFile || !selectedWorkflowForOffer) {
       toast({
         title: "Error",
@@ -1809,182 +1567,135 @@ const regenerateOfferWithChanges = async () => {
       return;
     }
 
-    setIsRegenerating(true);
     try {
-      // (Previous logic to generate blob and get filePath remains the same)
+      setIsRegenerating(true);
+
+      const offerData = {
+        candidate_name: fieldValues.candidate_name || '',
+        position: fieldValues.position || '',
+        salary: fieldValues.salary || '',
+        start_date: fieldValues.start_date || '',
+        company_name: fieldValues.company_name || '',
+        ...fieldValues
+      };
+
       const response = await offerApiService.generateOfferLetter({
         template_file: templateFile,
-        data: fieldValues,
-        output_format: 'pdf'
+        data: offerData,
+        output_format: 'both'
       });
-      if (!response.success || !response.files?.pdf) throw new Error("API service failed to regenerate the PDF.");
-      const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-      if (!pdfBlob) throw new Error("Failed to download the regenerated PDF blob.");
-      const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-      
-      const { error: uploadError } = await supabase.storage.from('offer-letters').upload(filePath, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: true
-      });
-      if (uploadError) throw new Error(`Failed to re-upload to Supabase bucket: ${uploadError.message}`);
 
-      // ====== THE FIX IS HERE: Create a new SIGNED URL for the updated file ======
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 300); // New 5-minute URL
-      
-      if (signedUrlError) {
-        throw new Error(`Could not create signed URL for update: ${signedUrlError.message}`);
+      if (response.success) {
+        let pdfFile: Blob | null = null;
+        let sessionPdfUrl: string | null = null;
+
+        try {
+          if (response.files?.pdf) {
+            pdfFile = await offerApiService.downloadFile(response.files.pdf);
+            if (pdfFile) {
+              sessionPdfUrl = URL.createObjectURL(pdfFile);
+            }
+          }
+
+          try {
+            const salaryString = fieldValues.salary?.replace(/[^0-9.-]+/g, '') || '0';
+            const salaryAmount = parseFloat(salaryString);
+            
+            const { data: existingOffer, error: findError } = await supabase
+              .from('offers')
+              .select('id, logs')
+              .eq('job_application_id', selectedWorkflowForOffer.job_application_id)
+              .single();
+
+            if (!findError && existingOffer) {
+              const existingLogs = existingOffer.logs || [];
+              const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
+                (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
+
+              const updatedOfferData = {
+                salary_amount: salaryAmount > 0 ? salaryAmount : 50000,
+                currency: fieldValues.currency || 'USD',
+                start_date: fieldValues.start_date ? new Date(fieldValues.start_date).toISOString() : null,
+                offer_letter_url: response.files?.pdf || null,
+                session_pdf_url: sessionPdfUrl,
+                benefits: fieldValues.benefits ? 
+                  (typeof fieldValues.benefits === 'string' ? [fieldValues.benefits] : Array.isArray(fieldValues.benefits) ? fieldValues.benefits : []) : 
+                  [],
+                signing_bonus: fieldValues.signing_bonus ? parseFloat(String(fieldValues.signing_bonus).replace(/[^0-9.-]+/g, '')) : null,
+                equity_percentage: fieldValues.equity_percentage ? parseFloat(String(fieldValues.equity_percentage)) : null,
+                probation_period_months: fieldValues.probation_period_months ? parseInt(String(fieldValues.probation_period_months)) : null,
+                notice_period_days: fieldValues.notice_period_days ? parseInt(String(fieldValues.notice_period_days)) : null,
+                logs: JSON.stringify([
+                  ...updatedLogs,
+                  {
+                    timestamp: new Date().toISOString(),
+                    action: 'offer_regenerated',
+                    api_request_id: response.request_id,
+                    session_pdf_url: sessionPdfUrl,
+                    storage_url: response.files?.pdf
+                  }
+                ]),
+                updated_at: new Date().toISOString()
+              };
+
+              await supabase
+                .from('offers')
+                .update(updatedOfferData as any)
+                .eq('id', existingOffer.id);
+            }
+          } catch (offerError) {
+            console.error('Error updating offer record during regeneration:', offerError);
+          }
+        } catch (fileError) {
+          console.error('Error handling regenerated files:', fileError);
+        }
+
+        await supabase
+          .from('offer_workflow')
+          .update({
+            generated_offer_content: JSON.stringify(fieldValues),
+            offer_details: {
+              ...fieldValues,
+              pdf_file_id: response.files?.pdf,
+              docx_file_id: response.files?.docx,
+              offer_letter_url: response.files?.pdf,
+              session_pdf_url: sessionPdfUrl,
+              api_request_id: response.request_id,
+              regenerated_at: new Date().toISOString()
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedWorkflowForOffer.id);
+
+        setGeneratedOfferUrl(sessionPdfUrl);
+        setGeneratedOfferData({
+          ...fieldValues,
+          pdf_file_id: response.files?.pdf,
+          docx_file_id: response.files?.docx,
+          offer_letter_url: response.files?.pdf,
+          session_pdf_url: sessionPdfUrl,
+          api_request_id: response.request_id
+        });
+        setPreviewPdfUrl(sessionPdfUrl);
+
+        toast({
+          title: "Offer Letter Regenerated!",
+          description: "The offer letter has been updated with your changes.",
+        });
+      } else {
+        throw new Error(response.message || 'Failed to regenerate offer letter');
       }
-      const securePreviewUrl = signedUrlData.signedUrl;
-      // ===========================================================================
-
-      // (Database update logic remains the same)
-      const permanentDbUrl = supabase.storage.from('offer-letters').getPublicUrl(filePath).data.publicUrl;
-      let formattedStartDate = null;
-      if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-          const parts = fieldValues.start_date.split(/[/.-]/);
-          if (parts.length === 3) formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-      const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-      const salaryAmount = parseFloat(salaryString) || 0;
-      const offerDataForTable = {
-        job_application_id: selectedWorkflowForOffer.job_application_id,
-        salary_amount: salaryAmount,
-        currency: fieldValues.currency || 'USD',
-        start_date: formattedStartDate,
-        benefits: fieldValues.benefits || [],
-        offer_letter_url: permanentDbUrl,
-        status: 'draft' as const,
-      };
-      await supabase.from('offers').upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      await supabase.from('offer_workflow').update({
-          offer_letter_url: permanentDbUrl,
-          offer_details: { ...fieldValues },
-          updated_at: new Date().toISOString()
-      }).eq('id', selectedWorkflowForOffer.id);
-
-      // Use the new SECURE, TEMPORARY signed URL to refresh the preview
-      setPreviewPdfUrl(securePreviewUrl);
-      
-      toast({
-        title: "Offer Letter Updated!",
-        description: "The preview has been refreshed.",
-      });
-
     } catch (error) {
       console.error('Error in regenerateOfferWithChanges:', error);
       toast({
-        title: "Update Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        title: "Regeneration Failed",
+        description: error instanceof Error ? error.message : "Failed to regenerate offer letter",
         variant: "destructive",
       });
     } finally {
       setIsRegenerating(false);
     }
-};
-
-// const regenerateOfferWithChanges = async () => {
-//     if (!templateFile || !selectedWorkflowForOffer) {
-//       toast({
-//         title: "Error",
-//         description: "Template file or workflow not found",
-//         variant: "destructive"
-//       });
-//       return;
-//     }
-
-//     setIsRegenerating(true);
-//     try {
-//       // Step 1: Generate the new PDF content using the updated fieldValues
-//       const response = await offerApiService.generateOfferLetter({
-//         template_file: templateFile,
-//         data: fieldValues, // Use the latest data from the "Quick Edits" panel
-//         output_format: 'pdf'
-//       });
-
-//       if (!response.success || !response.files?.pdf) {
-//         throw new Error("API service failed to regenerate the PDF.");
-//       }
-
-//       const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-//       if (!pdfBlob) {
-//         throw new Error("Failed to download the regenerated PDF blob.");
-//       }
-
-//       // Step 2: Use the SAME predictable file path to ensure we overwrite the old file
-//       const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-
-//       // Step 3: Upload/Overwrite the file in the Supabase bucket
-//       const { error: uploadError } = await supabase.storage
-//         .from('offer-letters') // Ensure this bucket name is correct
-//         .upload(filePath, pdfBlob, {
-//           contentType: 'application/pdf',
-//           upsert: true // This will replace the old file
-//         });
-
-//       if (uploadError) {
-//         throw new Error(`Failed to re-upload to Supabase bucket: ${uploadError.message}`);
-//       }
-
-//       // Step 4: Get the public URL. It will be the same as before, but we get it again to be safe.
-//       const { data: urlData } = supabase.storage
-//         .from('offer-letters')
-//         .getPublicUrl(filePath);
-
-//       const supabaseFileUrl = urlData.publicUrl;
-
-//       // Step 5: Update the 'offers' table with the new details
-//       let formattedStartDate = null;
-//       if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-//         const parts = fieldValues.start_date.split(/[/.-]/);
-//         if (parts.length === 3) {
-//             formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-//         }
-//       }
-//       const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-//       const salaryAmount = parseFloat(salaryString) || 0;
-//       const offerDataForTable = {
-//         job_application_id: selectedWorkflowForOffer.job_application_id,
-//         salary_amount: salaryAmount,
-//         currency: fieldValues.currency || 'USD',
-//         start_date: formattedStartDate,
-//         benefits: fieldValues.benefits || [],
-//         offer_letter_url: supabaseFileUrl, // Update with the same URL
-//         status: 'draft' as const,
-//       };
-//       await supabase.from('offers').upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      
-//       // Step 6: Update the 'offer_workflow' table with the regenerated details
-//       await supabase
-//         .from('offer_workflow')
-//         .update({
-//           offer_letter_url: supabaseFileUrl,
-//           offer_details: { ...fieldValues },
-//           updated_at: new Date().toISOString()
-//         })
-//         .eq('id', selectedWorkflowForOffer.id);
-
-//       // Step 7: Refresh the preview with the new content
-//       // We add a timestamp query parameter to bust the browser cache and force a reload
-//       setPreviewPdfUrl(`${supabaseFileUrl}?t=${new Date().getTime()}`);
-      
-//       toast({
-//         title: "Offer Letter Updated!",
-//         description: "The preview has been refreshed with your changes.",
-//       });
-
-//     } catch (error) {
-//       console.error('Error in regenerateOfferWithChanges:', error);
-//       toast({
-//         title: "Update Failed",
-//         description: error instanceof Error ? error.message : "An unknown error occurred",
-//         variant: "destructive",
-//       });
-//     } finally {
-//       setIsRegenerating(false);
-//     }
-// };
+  };
 
   const handleInputChange = (fieldId: string, value: string) => {
     setFieldValues(prev => ({

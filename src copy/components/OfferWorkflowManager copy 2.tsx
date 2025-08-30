@@ -193,79 +193,10 @@ export function OfferWorkflowManager() {
     }
   };
 
-  // const fetchWorkflows = async () => {
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from('offer_workflow')
-  //       .select(`
-  //         *,
-  //         job_applications!inner (
-  //           id,
-  //           job_id,
-  //           candidate_id,
-  //           jobs (title, salary_min, salary_max, currency, location),
-  //           candidates!inner (
-  //             profile_id,
-  //             profiles!inner (first_name, last_name, email)
-  //           )
-  //         )
-  //       `)
-  //       .order('created_at', { ascending: false });
-
-  //     if (error) throw error;
-      
-  //     setWorkflows(data as any || []);
-  //   } catch (error) {
-  //     console.error('Error fetching workflows:', error);
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to fetch offer workflows",
-  //       variant: "destructive",
-  //     });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const fetchUploadedTemplates = async () => {
-  //   try {
-  //     const { data, error } = await supabase
-  //       .from('offer_templates')
-  //       .select(`
-  //         id,
-  //         template_name,
-  //         template_content,
-  //         job_role,
-  //         country,
-  //         is_validated,
-  //         created_at
-  //       `)
-  //       .order('created_at', { ascending: false });
-
-  //     if (error) throw error;
-      
-  //     setUploadedTemplates(data || []);
-  //   } catch (error) {
-  //     console.error('Error fetching templates:', error);
-  //     toast({
-  //       title: "Error", 
-  //       description: "Failed to fetch uploaded templates",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
-  
-  // MERGED: Function to handle showing the preview for HR
-
-
   const fetchWorkflows = async () => {
     try {
-      setLoading(true); // Start loading
-      console.log('Calling secure database function: get_company_offer_workflows');
-      
-      // Use the new, safe RPC function
       const { data, error } = await supabase
-        .rpc('get_company_offer_workflows')
+        .from('offer_workflow')
         .select(`
           *,
           job_applications!inner (
@@ -298,11 +229,8 @@ export function OfferWorkflowManager() {
 
   const fetchUploadedTemplates = async () => {
     try {
-      console.log('Calling secure database function: get_company_offer_templates');
-
-      // Use the existing RPC function we confirmed from your video
       const { data, error } = await supabase
-        .rpc('get_company_offer_templates')
+        .from('offer_templates')
         .select(`
           id,
           template_name,
@@ -326,84 +254,37 @@ export function OfferWorkflowManager() {
       });
     }
   };
-
-  // const previewOfferForHr = async (workflow: OfferWorkflow) => {
-  //   const pdfFileId = workflow.offer_details?.pdf_file_id;
-  //   if (!pdfFileId) {
-  //     toast({
-  //       title: "Preview Unavailable",
-  //       description: "The offer letter PDF could not be found for this workflow.",
-  //       variant: "destructive",
-  //     });
-  //     return;
-  //   }
-
-  //   setIsPreviewing(true);
-  //   try {
-  //     const blob = await offerApiService.downloadFile(pdfFileId);
-  //     const url = URL.createObjectURL(blob);
-  //     setHrPreviewPdfUrl(url);
-  //     setShowHrPreviewDialog(true);
-  //   } catch (error) {
-  //     console.error("Error generating HR preview:", error);
-  //     toast({
-  //       title: "Preview Failed",
-  //       description: "Could not load the offer letter for preview.",
-  //       variant: "destructive",
-  //     });
-  //   } finally {
-  //     setIsPreviewing(false);
-  //   }
-  // };
-
-  // FIND THE OLD `previewOfferForHr` FUNCTION AND REPLACE IT WITH THIS NEW, CORRECTED VERSION
-
-const previewOfferForHr = async (workflow: OfferWorkflow) => {
-    // Step 1: Get the permanent file path from the workflow object.
-    // We saved this when we generated the offer.
-    const offerLetterPath = workflow.offer_letter_url;
-
-    if (!offerLetterPath) {
+  
+  // MERGED: Function to handle showing the preview for HR
+  const previewOfferForHr = async (workflow: OfferWorkflow) => {
+    const pdfFileId = workflow.offer_details?.pdf_file_id;
+    if (!pdfFileId) {
       toast({
         title: "Preview Unavailable",
-        description: "The offer letter URL was not found for this workflow.",
+        description: "The offer letter PDF could not be found for this workflow.",
         variant: "destructive",
       });
       return;
     }
-    
-    // The full URL is stored, but we only need the path for creating a new signed URL.
-    // Let's extract the path from the full public URL.
-    const urlParts = offerLetterPath.split('/');
-    const filePath = urlParts.slice(urlParts.indexOf('offer-letters') + 1).join('/');
 
     setIsPreviewing(true);
     try {
-      // Step 2: Create a NEW, secure, temporary signed URL for the HR to view the file.
-      const { data, error } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 300); // 300 seconds = 5 minutes validity
-
-      if (error) {
-        throw new Error(`Could not create signed URL for HR preview: ${error.message}`);
-      }
-
-      // Step 3: Use this new signed URL to show the preview.
-      setHrPreviewPdfUrl(data.signedUrl);
-      setShowHrDialog(true); // Assuming you want to show the main HR dialog
+      const blob = await offerApiService.downloadFile(pdfFileId);
+      const url = URL.createObjectURL(blob);
+      setHrPreviewPdfUrl(url);
       setShowHrPreviewDialog(true);
-
     } catch (error) {
       console.error("Error generating HR preview:", error);
       toast({
         title: "Preview Failed",
-        description: error instanceof Error ? error.message : "Could not load the offer letter for preview.",
+        description: "Could not load the offer letter for preview.",
         variant: "destructive",
       });
     } finally {
       setIsPreviewing(false);
     }
-};
+  };
+
 
   const advanceWorkflow = async (workflowId: string, stepData: any = {}) => {
     setActionLoading(workflowId);
@@ -755,92 +636,48 @@ const previewOfferForHr = async (workflow: OfferWorkflow) => {
     }
   };
 
-//  const approveOffer = async (workflow: OfferWorkflow, comments: string) => {
-//     try {
-//         const { data: { user } } = await supabase.auth.getUser();
-        
-//         await advanceWorkflow(workflow.id, {
-//             hr_approval_status: 'approved',
-//             hr_comments: comments, // Use the comments passed from the dialog
-//             hr_approved_by: user?.id,
-//             hr_approved_at: new Date().toISOString()
-//         });
-        
-//         setShowHrDialog(false); // Close the dialog on success
-//     } catch (error) {
-//       console.error('Error approving offer:', error);
-//       toast({
-//         title: "Error",
-//         description: "Failed to approve offer",
-//         variant: "destructive",
-//       });
-//     }
-//   };
-
-// PASTE THIS REVISED FUNCTION INTO YOUR OfferWorkflowManager.tsx FILE
-
- const approveOffer = async (workflow: OfferWorkflow, comments: string) => {
-    setActionLoading(workflow.id);
+  const approveOffer = async (workflow: OfferWorkflow) => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // Step 1: Update the 'offers' table.
-        // Find the offer record and change its status from 'draft' to 'approved'.
-        const { error: offerUpdateError } = await supabase
-          .from('offers')
-          .update({ 
-            status: 'approved',
-            updated_at: new Date().toISOString() 
-          })
-          .eq('job_application_id', workflow.job_application_id);
-
-        if (offerUpdateError) {
-          throw new Error(`Could not update the 'offers' table: ${offerUpdateError.message}`);
-        }
-        
-        // Step 2: Advance the workflow to the next step (Candidate Review).
-        // This is your existing logic, which works perfectly.
-        await advanceWorkflow(workflow.id, {
-            hr_approval_status: 'approved',
-            hr_comments: comments,
-            hr_approved_by: user?.id,
-            hr_approved_at: new Date().toISOString()
-        });
-        
-        setShowHrDialog(false); // Close the dialog on success
-        await fetchWorkflows(); // Refresh the list to show the new status
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      await advanceWorkflow(workflow.id, {
+        hr_approval_status: 'approved',
+        hr_comments: hrComments,
+        hr_approved_by: user?.id,
+        hr_approved_at: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error approving offer:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to approve offer",
+        description: "Failed to approve offer",
         variant: "destructive",
       });
-    } finally {
-        setActionLoading(null);
     }
   };
-  const rejectOffer = async (workflow: OfferWorkflow, comments: string) => {
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        await supabase.from('offer_workflow').update({
-            hr_approval_status: 'rejected',
-            hr_comments: comments, // Use comments from dialog
-            hr_approved_by: user?.id,
-            hr_approved_at: new Date().toISOString(),
-            status: 'failed',
-            updated_at: new Date().toISOString()
-        }).eq('id', workflow.id);
 
-        await fetchWorkflows();
+  const rejectOffer = async (workflow: OfferWorkflow) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
       
-        toast({
-          title: "Offer Rejected",
-          description: "Offer has been rejected by HR",
-          variant: "destructive",
-        });
-        setShowHrDialog(false);
+      await supabase
+        .from('offer_workflow')
+        .update({
+          hr_approval_status: 'rejected',
+          hr_comments: hrComments,
+          hr_approved_by: user?.id,
+          hr_approved_at: new Date().toISOString(),
+          status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', workflow.id);
+
+      await fetchWorkflows();
+      toast({
+        title: "Offer Rejected",
+        description: "Offer has been rejected by HR",
+        variant: "destructive",
+      });
     } catch (error) {
       console.error('Error rejecting offer:', error);
       toast({
@@ -851,264 +688,140 @@ const previewOfferForHr = async (workflow: OfferWorkflow) => {
     }
   };
 
-  
-const requestRevision = async (workflow: OfferWorkflow, comments: string) => {
-  if (!comments) {
-    toast({
-      title: "Comments Required",
-      description: "Please provide comments explaining what needs to be revised.",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  setActionLoading(workflow.id);
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // This update moves the workflow BACK to offer generation
-    await supabase
-      .from('offer_workflow')
-      .update({
-        status: 'in_progress', // Keep it in progress
-        current_step: 'offer_generation', // Move it back one step!
-        hr_approval_status: 'revision_requested', // Set a clear status
-        hr_comments: comments, // Save the feedback
-        hr_approved_by: user?.id, // Log who requested it
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', workflow.id);
-
-    await fetchWorkflows(); // Refresh the list
-    toast({
-      title: "Revision Requested",
-      description: "The offer has been sent back for revision.",
-    });
-    setShowHrDialog(false); // Close the dialog
-  } catch (error: any) {
-    toast({
-      title: "Error",
-      description: `Failed to request revision: ${error.message}`,
-      variant: "destructive",
-    });
-  } finally {
-    setActionLoading(null);
-  }
-};
-
   // MERGED: This is your partner's superior, bug-free version of the function
-  // const sendToCandidate = async (workflow: OfferWorkflow) => {
-  //   setActionLoading(workflow.id);
-    
-  //   try {
-  //     // FIX: Directly refetch the workflow from the database before sending.
-  //     const { data: latestWorkflow, error: fetchError } = await supabase
-  //       .from('offer_workflow')
-  //       .select(`
-  //         *,
-  //         job_applications (
-  //           candidates (
-  //             profiles ( first_name, last_name, email )
-  //           ),
-  //           jobs ( title )
-  //         )
-  //       `)
-  //       .eq('id', workflow.id)
-  //       .single();
-
-  //     if (fetchError || !latestWorkflow) {
-  //       console.error("Fetch Error:", fetchError);
-  //       throw new Error("Could not fetch the latest workflow details before sending.");
-  //     }
-
-  //     const pdfFileId = latestWorkflow.offer_details?.pdf_file_id;
-
-  //     if (!pdfFileId) {
-  //       toast({
-  //         title: "No Offer Letter",
-  //         description: "The latest version of the offer letter could not be found.",
-  //         variant: "destructive"
-  //       });
-  //       setActionLoading(null);
-  //       return;
-  //     }
-
-  //     const candidate = latestWorkflow.job_applications?.candidates?.profiles;
-  //     const job = latestWorkflow.job_applications?.jobs;
-
-  //     if (!candidate || !job || !candidate.email) {
-  //       throw new Error('Missing latest candidate or job data for sending the offer.');
-  //     }
-
-  //     const pdfBlob = await offerApiService.downloadFile(pdfFileId);
-
-  //     const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, {
-  //       type: 'application/pdf'
-  //     });
-
-  //     const emailContent = generateOfferEmailContent(
-  //       `${candidate.first_name} ${candidate.last_name}`,
-  //       job.title || 'the position'
-  //     );
-
-  //     const response = await offerApiService.sendOfferLetter({
-  //       pdf_file: pdfFile,
-  //       email_data: {
-  //         emails: [candidate.email],
-  //         subject: `Job Offer - ${job.title}`,
-  //         html_content: emailContent
-  //       }
-  //     });
-
-  //     setEmailRequestId(response.request_id);
-      
-  //     try {
-  //       const { data: currentOffer, error: getCurrentOfferError } = await supabase
-  //         .from('offers')
-  //         .select('id, logs')
-  //         .eq('job_application_id', workflow.job_application_id)
-  //         .single();
-
-  //       if (!getCurrentOfferError && currentOffer) {
-  //         const existingLogs = currentOffer.logs || [];
-  //         const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
-  //           (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
-          
-  //         await supabase
-  //           .from('offers')
-  //           .update({
-  //             status: 'sent',
-  //             sent_at: new Date().toISOString(),
-  //             logs: JSON.stringify([
-  //               ...updatedLogs,
-  //               {
-  //                 timestamp: new Date().toISOString(),
-  //                 action: 'offer_sent',
-  //                 email_request_id: response.request_id,
-  //                 recipient: candidate.email
-  //               }
-  //             ]),
-  //             updated_at: new Date().toISOString()
-  //           } as any)
-  //           .eq('id', currentOffer.id);
-  //       }
-  //     } catch (offerError) {
-  //       console.error('Error updating offers table:', offerError);
-  //     }
-      
-  //     await advanceWorkflow(workflow.id, {
-  //       offer_letter_url: pdfFileId,
-  //       sent_to_candidate_at: new Date().toISOString(),
-  //       candidate_notification_sent: true,
-  //       logs: [
-  //         ...(latestWorkflow.logs || []),
-  //         {
-  //           timestamp: new Date().toISOString(),
-  //           action: 'offer_sent',
-  //           email_request_id: response.request_id,
-  //           recipient: candidate.email
-  //         }
-  //       ]
-  //     });
-
-  //     toast({
-  //       title: "Offer Sent",
-  //       description: "Offer letter has been sent to the candidate.",
-  //     });
-
-  //     setShowEmailDialog(true);
-      
-  //   } catch (error) {
-  //     console.error('Error sending offer:', error);
-  //     toast({
-  //       title: "Send Failed",
-  //       description: error instanceof Error ? error.message : "Failed to send offer to candidate",
-  //       variant: "destructive",
-  //     });
-  //   } finally {
-  //     setActionLoading(null);
-  //   }
-  // };
-// FIND THE OLD `sendToCandidate` AND REPLACE IT WITH THIS FINAL, SECURE VERSION
-
-const sendToCandidate = async (workflow: OfferWorkflow) => {
+  const sendToCandidate = async (workflow: OfferWorkflow) => {
     setActionLoading(workflow.id);
     
     try {
-      // Step 1: Fetch latest workflow data.
+      // FIX: Directly refetch the workflow from the database before sending.
       const { data: latestWorkflow, error: fetchError } = await supabase
         .from('offer_workflow')
-        .select(`*, job_applications (candidates (profiles (first_name, last_name, email)), jobs (title))`)
+        .select(`
+          *,
+          job_applications (
+            candidates (
+              profiles ( first_name, last_name, email )
+            ),
+            jobs ( title )
+          )
+        `)
         .eq('id', workflow.id)
         .single();
 
       if (fetchError || !latestWorkflow) {
-        throw new Error("Could not fetch latest workflow details.");
+        console.error("Fetch Error:", fetchError);
+        throw new Error("Could not fetch the latest workflow details before sending.");
       }
 
-      const offerLetterUrl = latestWorkflow.offer_letter_url;
-      if (!offerLetterUrl) {
-        toast({ title: "No Offer Letter", description: "Offer letter URL not found.", variant: "destructive" });
+      const pdfFileId = latestWorkflow.offer_details?.pdf_file_id;
+
+      if (!pdfFileId) {
+        toast({
+          title: "No Offer Letter",
+          description: "The latest version of the offer letter could not be found.",
+          variant: "destructive"
+        });
         setActionLoading(null);
         return;
       }
 
-      // ====== THE FIX IS HERE ======
-      // We can't fetch a private file from a public URL.
-      // We must create a temporary SIGNED URL to download the file securely.
-
-      // First, extract the file path from the full URL saved in the DB.
-      const urlParts = new URL(offerLetterUrl);
-      const filePath = urlParts.pathname.substring(urlParts.pathname.indexOf('offer-letters/') + 'offer-letters/'.length);
-
-      // Now, create a signed URL that is valid for 60 seconds.
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 60); // 60 seconds is enough to download
-
-      if (signedUrlError) {
-        throw new Error(`Could not create signed URL for download: ${signedUrlError.message}`);
-      }
-
-      // Step 2: Use this new, secure signed URL to download the file.
-      const responseFile = await fetch(signedUrlData.signedUrl);
-      if (!responseFile.ok) {
-        throw new Error("Could not download the offer letter using the signed URL.");
-      }
-      const pdfBlob = await responseFile.blob();
-      // ===========================
-
       const candidate = latestWorkflow.job_applications?.candidates?.profiles;
       const job = latestWorkflow.job_applications?.jobs;
-      if (!candidate || !job || !candidate.email) throw new Error('Missing candidate or job data.');
 
-      const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, { type: 'application/pdf' });
+      if (!candidate || !job || !candidate.email) {
+        throw new Error('Missing latest candidate or job data for sending the offer.');
+      }
 
-      // (Rest of the logic is the same)
-      const emailContent = generateOfferEmailContent(`${candidate.first_name} ${candidate.last_name}`, job.title || 'the position');
+      const pdfBlob = await offerApiService.downloadFile(pdfFileId);
+
+      const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, {
+        type: 'application/pdf'
+      });
+
+      const emailContent = generateOfferEmailContent(
+        `${candidate.first_name} ${candidate.last_name}`,
+        job.title || 'the position'
+      );
+
       const response = await offerApiService.sendOfferLetter({
         pdf_file: pdfFile,
-        email_data: { emails: [candidate.email], subject: `Job Offer - ${job.title}`, html_content: emailContent }
+        email_data: {
+          emails: [candidate.email],
+          subject: `Job Offer - ${job.title}`,
+          html_content: emailContent
+        }
       });
 
       setEmailRequestId(response.request_id);
-      await supabase.from('offers').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('job_application_id', workflow.job_application_id);
-      await advanceWorkflow(workflow.id, { sent_to_candidate_at: new Date().toISOString(), candidate_notification_sent: true });
+      
+      try {
+        const { data: currentOffer, error: getCurrentOfferError } = await supabase
+          .from('offers')
+          .select('id, logs')
+          .eq('job_application_id', workflow.job_application_id)
+          .single();
 
-      toast({ title: "Offer Sent", description: "Offer letter has been sent to the candidate." });
+        if (!getCurrentOfferError && currentOffer) {
+          const existingLogs = currentOffer.logs || [];
+          const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
+            (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
+          
+          await supabase
+            .from('offers')
+            .update({
+              status: 'sent',
+              sent_at: new Date().toISOString(),
+              logs: JSON.stringify([
+                ...updatedLogs,
+                {
+                  timestamp: new Date().toISOString(),
+                  action: 'offer_sent',
+                  email_request_id: response.request_id,
+                  recipient: candidate.email
+                }
+              ]),
+              updated_at: new Date().toISOString()
+            } as any)
+            .eq('id', currentOffer.id);
+        }
+      } catch (offerError) {
+        console.error('Error updating offers table:', offerError);
+      }
+      
+      await advanceWorkflow(workflow.id, {
+        offer_letter_url: pdfFileId,
+        sent_to_candidate_at: new Date().toISOString(),
+        candidate_notification_sent: true,
+        logs: [
+          ...(latestWorkflow.logs || []),
+          {
+            timestamp: new Date().toISOString(),
+            action: 'offer_sent',
+            email_request_id: response.request_id,
+            recipient: candidate.email
+          }
+        ]
+      });
+
+      toast({
+        title: "Offer Sent",
+        description: "Offer letter has been sent to the candidate.",
+      });
+
       setShowEmailDialog(true);
       
     } catch (error) {
       console.error('Error sending offer:', error);
       toast({
         title: "Send Failed",
-        description: error instanceof Error ? error.message : "Failed to send offer.",
+        description: error instanceof Error ? error.message : "Failed to send offer to candidate",
         variant: "destructive",
       });
     } finally {
       setActionLoading(null);
     }
   };
+
 
   const checkEmailStatus = async (requestId: string) => {
     try {
@@ -1429,121 +1142,85 @@ const sendToCandidate = async (workflow: OfferWorkflow) => {
             </DialogContent>
           </Dialog>
         );
-      // case 'hr_approval':
-      //   if (workflow.hr_approval_status === 'approved') {
-      //     return (
-      //       <Badge variant="default" className="bg-green-500">
-      //         HR Approved
-      //       </Badge>
-      //     );
-      //   }
-      //   if (workflow.hr_approval_status === 'rejected') {
-      //     return (
-      //       <Badge variant="destructive">
-      //         HR Rejected
-      //       </Badge>
-      //     );
-      //   }
-      //   // MERGED: This JSX now includes the "Preview Offer" button
-      //   return (
-      //     <div className="flex items-center space-x-2">
-      //       <Button
-      //         variant="outline"
-      //         size="sm"
-      //         onClick={() => previewOfferForHr(workflow)}
-      //         disabled={isPreviewing || !workflow.offer_details?.pdf_file_id}
-      //       >
-      //         <Eye className="w-4 h-4 mr-2" />
-      //         {isPreviewing ? 'Loading...' : 'Preview Offer'}
-      //       </Button>
-      //       <Dialog>
-      //         <DialogTrigger asChild>
-      //           <Button size="sm" onClick={() => setSelectedWorkflow(workflow)}>
-      //             Review & Approve
-      //           </Button>
-      //         </DialogTrigger>
-      //         <DialogContent>
-      //           <DialogHeader>
-      //             <DialogTitle>HR Approval</DialogTitle>
-      //             <DialogDescription>
-      //               Review and approve offer for {candidate?.first_name} {candidate?.last_name}
-      //             </DialogDescription>
-      //           </DialogHeader>
-      //           <div className="space-y-4">
-      //             {workflow.offer_details && (
-      //               <div className="p-4 bg-muted rounded-lg">
-      //                 <h4 className="font-medium mb-2">Offer Details</h4>
-      //                 <p><strong>Position:</strong> {workflow.offer_details.position}</p>
-      //                 <p><strong>Salary:</strong> ${workflow.final_offer_amount}</p>
-      //               </div>
-      //             )}
-      //             <div>
-      //               <Label htmlFor="comments">HR Comments</Label>
-      //               <Textarea
-      //                 id="comments"
-      //                 value={hrComments}
-      //                 onChange={(e) => setHrComments(e.target.value)}
-      //                 placeholder="Add any comments or notes..."
-      //               />
-      //             </div>
-      //             <div className="flex space-x-2">
-      //               <Button 
-      //                 onClick={() => approveOffer(workflow)}
-      //                 disabled={isLoading}
-      //                 className="flex-1"
-      //               >
-      //                 {isLoading ? 'Approving...' : 'Approve Offer'}
-      //               </Button>
-      //               <Button 
-      //                 onClick={() => rejectOffer(workflow)}
-      //                 disabled={isLoading}
-      //                 variant="destructive"
-      //                 className="flex-1"
-      //               >
-      //                 {isLoading ? 'Rejecting...' : 'Reject Offer'}
-      //               </Button>
-      //             </div>
-      //           </div>
-      //         </DialogContent>
-      //       </Dialog>
-      //     </div>
-      //   );
-      // THIS IS THE FINAL, CORRECTED CODE
-case 'hr_approval':
-  if (workflow.hr_approval_status === 'approved') {
-    return (
-      <Badge variant="default" className="bg-green-500">
-        HR Approved
-      </Badge>
-    );
-  }
-  if (workflow.hr_approval_status === 'rejected') {
-    return (
-      <Badge variant="destructive">
-        HR Rejected
-      </Badge>
-    );
-  }
-  // This is the clean, final UI
-  return (
-    <div className="flex items-center space-x-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => previewOfferForHr(workflow)}
-        disabled={isPreviewing || !workflow.offer_letter_url}
-      >
-        <Eye className="w-4 h-4 mr-2" />
-        {isPreviewing ? 'Loading...' : 'Preview'}
-      </Button>
-      <Button size="sm" onClick={() => {
-        setSelectedWorkflow(workflow); // Set which workflow to show
-        setShowHrDialog(true); // Open the new dialog
-      }}>
-        Review & Approve
-      </Button>
-    </div>
-  );
+      case 'hr_approval':
+        if (workflow.hr_approval_status === 'approved') {
+          return (
+            <Badge variant="default" className="bg-green-500">
+              HR Approved
+            </Badge>
+          );
+        }
+        if (workflow.hr_approval_status === 'rejected') {
+          return (
+            <Badge variant="destructive">
+              HR Rejected
+            </Badge>
+          );
+        }
+        // MERGED: This JSX now includes the "Preview Offer" button
+        return (
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => previewOfferForHr(workflow)}
+              disabled={isPreviewing || !workflow.offer_details?.pdf_file_id}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {isPreviewing ? 'Loading...' : 'Preview Offer'}
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => setSelectedWorkflow(workflow)}>
+                  Review & Approve
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>HR Approval</DialogTitle>
+                  <DialogDescription>
+                    Review and approve offer for {candidate?.first_name} {candidate?.last_name}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {workflow.offer_details && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <h4 className="font-medium mb-2">Offer Details</h4>
+                      <p><strong>Position:</strong> {workflow.offer_details.position}</p>
+                      <p><strong>Salary:</strong> ${workflow.final_offer_amount}</p>
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="comments">HR Comments</Label>
+                    <Textarea
+                      id="comments"
+                      value={hrComments}
+                      onChange={(e) => setHrComments(e.target.value)}
+                      placeholder="Add any comments or notes..."
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={() => approveOffer(workflow)}
+                      disabled={isLoading}
+                      className="flex-1"
+                    >
+                      {isLoading ? 'Approving...' : 'Approve Offer'}
+                    </Button>
+                    <Button 
+                      onClick={() => rejectOffer(workflow)}
+                      disabled={isLoading}
+                      variant="destructive"
+                      className="flex-1"
+                    >
+                      {isLoading ? 'Rejecting...' : 'Reject Offer'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        );
       case 'candidate_review':
         if (!workflow.sent_to_candidate_at) {
           return (
@@ -1581,130 +1258,7 @@ case 'hr_approval':
     return stepObj ? stepObj.step : 1;
   };
   
-// const generateOfferWithFields = async () => {
-//     if (!templateFile || !selectedWorkflowForOffer) {
-//       toast({
-//         title: "Error",
-//         description: "Template file or workflow not found",
-//         variant: "destructive"
-//       });
-//       return;
-//     }
-
-//     setGeneratingOffer(true);
-//     try {
-//       // --- DEBUGGING STEP: Check the user session RIGHT BEFORE UPLOAD ---
-//       const { data: { session } } = await supabase.auth.getSession();
-//       console.log("Current Supabase session before upload:", session);
-
-//       if (!session) {
-//         throw new Error("User is not authenticated. Please log in again.");
-//       }
-//       // --- END OF DEBUGGING STEP ---
-
-
-//       // Step 1: Generate the PDF file content using the service.
-//       const response = await offerApiService.generateOfferLetter({
-//         template_file: templateFile,
-//         data: fieldValues,
-//         output_format: 'pdf'
-//       });
-
-//       if (!response.success || !response.files?.pdf) {
-//         throw new Error("API service did not return a valid PDF file ID.");
-//       }
-
-//       const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-//       if (!pdfBlob) {
-//         throw new Error("Failed to download the generated PDF blob.");
-//       }
-
-//       const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-
-//       // Step 3: Upload the PDF to our Supabase bucket with `upsert: true`.
-//       const { error: uploadError } = await supabase.storage
-//         .from('offer-letters')
-//         .upload(filePath, pdfBlob, {
-//           contentType: 'application/pdf',
-//           upsert: true
-//         });
-
-//       if (uploadError) {
-//         throw new Error(`Failed to upload to Supabase bucket: ${uploadError.message}`);
-//       }
-
-//       // ... (rest of the function remains the same) ...
-
-//       const { data: urlData } = supabase.storage
-//         .from('offer-letters')
-//         .getPublicUrl(filePath);
-
-//       const supabaseFileUrl = urlData.publicUrl;
-
-//       let formattedStartDate = null;
-//       if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-//         const parts = fieldValues.start_date.split(/[/.-]/);
-//         if (parts.length === 3) {
-//             formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-//         }
-//       }
-
-//       const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-//       const salaryAmount = parseFloat(salaryString) || 0;
-      
-//       const offerDataForTable = {
-//         job_application_id: selectedWorkflowForOffer.job_application_id,
-//         salary_amount: salaryAmount,
-//         currency: fieldValues.currency || 'USD',
-//         start_date: formattedStartDate,
-//         benefits: fieldValues.benefits || [],
-//         offer_letter_url: supabaseFileUrl,
-//         status: 'draft' as const,
-//       };
-
-//       const { error: offerError } = await supabase
-//         .from('offers')
-//         .upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      
-//       if (offerError) {
-//         throw new Error(`Failed to save to 'offers' table: ${offerError.message}`);
-//       }
-
-//       const { error: workflowError } = await supabase
-//         .from('offer_workflow')
-//         .update({
-//           offer_letter_url: supabaseFileUrl,
-//           offer_details: { ...fieldValues },
-//           offer_generated_at: new Date().toISOString(),
-//           updated_at: new Date().toISOString()
-//         })
-//         .eq('id', selectedWorkflowForOffer.id);
-
-//       if (workflowError) {
-//         throw new Error(`Failed to update 'offer_workflow': ${workflowError.message}`);
-//       }
-      
-//       setPreviewPdfUrl(supabaseFileUrl);
-//       setGeneratedOfferData(fieldValues);
-
-//       setShowFieldsDialog(false);
-//       setShowPreviewDialog(true);
-      
-//     } catch (error) {
-//       console.error('Error in generateOfferWithFields:', error);
-//       toast({
-//         title: "Generation Failed",
-//         description: error instanceof Error ? error.message : "An unknown error occurred",
-//         variant: "destructive",
-//       });
-//     } finally {
-//       setGeneratingOffer(false);
-//     }
-// };
-
-// PASTE THIS NEW VERSION OF generateOfferWithFields
-
-const generateOfferWithFields = async () => {
+  const generateOfferWithFields = async () => {
     if (!templateFile || !selectedWorkflowForOffer) {
       toast({
         title: "Error",
@@ -1714,92 +1268,143 @@ const generateOfferWithFields = async () => {
       return;
     }
 
-    setGeneratingOffer(true);
     try {
-      // (Previous steps to generate blob and get filePath remain the same)
+      setGeneratingOffer(true);
+
+      const offerData = {
+        candidate_name: fieldValues.candidate_name || '',
+        position: fieldValues.position || '',
+        salary: fieldValues.salary || '',
+        start_date: fieldValues.start_date || '',
+        company_name: fieldValues.company_name || '',
+        ...fieldValues
+      };
+
       const response = await offerApiService.generateOfferLetter({
         template_file: templateFile,
-        data: fieldValues,
-        output_format: 'pdf'
+        data: offerData,
+        output_format: 'both'
       });
-      if (!response.success || !response.files?.pdf) throw new Error("API service did not return a valid PDF file ID.");
-      const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-      if (!pdfBlob) throw new Error("Failed to download the generated PDF blob.");
-      const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('offer-letters')
-        .upload(filePath, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: true
+
+      if (response.success) {
+        let pdfFile: Blob | null = null;
+        let sessionPdfUrl: string | null = null;
+
+        try {
+          if (response.files?.pdf) {
+            pdfFile = await offerApiService.downloadFile(response.files.pdf);
+            if (pdfFile) {
+              sessionPdfUrl = URL.createObjectURL(pdfFile);
+            }
+          }
+
+          try {
+            const salaryString = fieldValues.salary?.replace(/[^0-9.-]+/g, '') || '0';
+            const salaryAmount = parseFloat(salaryString);
+            
+            const offerRecord = {
+              job_application_id: selectedWorkflowForOffer.job_application_id,
+              salary_amount: salaryAmount > 0 ? salaryAmount : 50000,
+              currency: fieldValues.currency || 'USD',
+              start_date: fieldValues.start_date ? new Date(fieldValues.start_date).toISOString() : null,
+              offer_letter_url: response.files?.pdf || null,
+              status: 'draft' as const,
+              benefits: fieldValues.benefits ? 
+                (typeof fieldValues.benefits === 'string' ? [fieldValues.benefits] : Array.isArray(fieldValues.benefits) ? fieldValues.benefits : []) : 
+                [],
+              signing_bonus: fieldValues.signing_bonus ? parseFloat(String(fieldValues.signing_bonus).replace(/[^0-9.-]+/g, '')) : null,
+              equity_percentage: fieldValues.equity_percentage ? parseFloat(String(fieldValues.equity_percentage)) : null,
+              probation_period_months: fieldValues.probation_period_months ? parseInt(String(fieldValues.probation_period_months)) : null,
+              notice_period_days: fieldValues.notice_period_days ? parseInt(String(fieldValues.notice_period_days)) : null,
+              session_pdf_url: sessionPdfUrl,
+              logs: JSON.stringify([{
+                timestamp: new Date().toISOString(),
+                action: 'offer_generated',
+                api_request_id: response.request_id,
+                session_pdf_url: sessionPdfUrl,
+                storage_url: response.files?.pdf
+              }]),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+
+            const { data: newOffer, error: createError } = await supabase
+              .from('offers')
+              .insert(offerRecord as any)
+              .select()
+              .single();
+
+            if (!createError && newOffer) {
+              try {
+                const expirationDate = new Date();
+                expirationDate.setDate(expirationDate.getDate() + 7);
+                
+                await supabase
+                  .from('offers')
+                  .update({
+                    expires_at: expirationDate.toISOString(),
+                    updated_at: new Date().toISOString()
+                  } as any)
+                  .eq('id', newOffer.id);
+              } catch (expirationError) {
+                console.error('Error in setting expiration:', expirationError);
+              }
+            }
+          } catch (offerError) {
+            console.error('Error handling offer record:', offerError);
+          }
+        } catch (fileError) {
+          console.error('Error handling files:', fileError);
+        }
+
+        const { error: updateError } = await supabase
+          .from('offer_workflow')
+          .update({
+            generated_offer_content: JSON.stringify(fieldValues),
+            offer_details: {
+              ...fieldValues,
+              pdf_file_id: response.files?.pdf,
+              docx_file_id: response.files?.docx,
+              offer_letter_url: response.files?.pdf,
+              session_pdf_url: sessionPdfUrl,
+              api_request_id: response.request_id
+            },
+            offer_generated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedWorkflowForOffer.id);
+
+        if (updateError) console.error('Error updating workflow:', updateError);
+
+        setGeneratedOfferUrl(sessionPdfUrl);
+        setGeneratedOfferData({
+          ...fieldValues,
+          pdf_file_id: response.files?.pdf,
+          docx_file_id: response.files?.docx,
+          offer_letter_url: response.files?.pdf,
+          session_pdf_url: sessionPdfUrl,
+          api_request_id: response.request_id
         });
-      if (uploadError) throw new Error(`Failed to upload to Supabase bucket: ${uploadError.message}`);
+        setPreviewPdfUrl(sessionPdfUrl);
 
-      // ====== THE FIX IS HERE: Create a SIGNED URL instead of a Public URL ======
-      // This URL will be valid for 300 seconds (5 minutes)
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 300); 
-      
-      if (signedUrlError) {
-        throw new Error(`Could not create signed URL: ${signedUrlError.message}`);
+        setShowFieldsDialog(false);
+        setShowPreviewDialog(true);
+      } else {
+        throw new Error(response.message || 'Failed to generate offer letter');
       }
-      const securePreviewUrl = signedUrlData.signedUrl;
-      // =======================================================================
-      
-      // We still save the PERMANENT path in the database for long-term access
-      const permanentDbUrl = supabase.storage.from('offer-letters').getPublicUrl(filePath).data.publicUrl;
-
-      // (Database saving logic remains the same, but uses permanentDbUrl)
-      let formattedStartDate = null;
-      if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-          const parts = fieldValues.start_date.split(/[/.-]/);
-          if (parts.length === 3) formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-      const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-      const salaryAmount = parseFloat(salaryString) || 0;
-      const offerDataForTable = {
-        job_application_id: selectedWorkflowForOffer.job_application_id,
-        salary_amount: salaryAmount,
-        currency: fieldValues.currency || 'USD',
-        start_date: formattedStartDate,
-        benefits: fieldValues.benefits || [],
-        offer_letter_url: permanentDbUrl, // Save the permanent path
-        status: 'draft' as const,
-      };
-      const { error: offerError } = await supabase.from('offers').upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      if (offerError) throw new Error(`Failed to save to 'offers' table: ${offerError.message}`);
-      
-      const { error: workflowError } = await supabase.from('offer_workflow').update({
-          offer_letter_url: permanentDbUrl, // Save the permanent path
-          offer_details: { ...fieldValues },
-          offer_generated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-      }).eq('id', selectedWorkflowForOffer.id);
-      if (workflowError) throw new Error(`Failed to update 'offer_workflow': ${workflowError.message}`);
-      
-      // Use the SECURE, TEMPORARY signed URL for the preview
-      setPreviewPdfUrl(securePreviewUrl);
-      setGeneratedOfferData(fieldValues);
-
-      setShowFieldsDialog(false);
-      setShowPreviewDialog(true);
-      
     } catch (error) {
       console.error('Error in generateOfferWithFields:', error);
       toast({
         title: "Generation Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        description: error instanceof Error ? error.message : "Failed to generate offer letter",
         variant: "destructive",
       });
     } finally {
       setGeneratingOffer(false);
     }
-};
+  };
 
-// PASTE THIS NEW VERSION OF regenerateOfferWithChanges
-
-const regenerateOfferWithChanges = async () => {
+  const regenerateOfferWithChanges = async () => {
     if (!templateFile || !selectedWorkflowForOffer) {
       toast({
         title: "Error",
@@ -1809,182 +1414,135 @@ const regenerateOfferWithChanges = async () => {
       return;
     }
 
-    setIsRegenerating(true);
     try {
-      // (Previous logic to generate blob and get filePath remains the same)
+      setIsRegenerating(true);
+
+      const offerData = {
+        candidate_name: fieldValues.candidate_name || '',
+        position: fieldValues.position || '',
+        salary: fieldValues.salary || '',
+        start_date: fieldValues.start_date || '',
+        company_name: fieldValues.company_name || '',
+        ...fieldValues
+      };
+
       const response = await offerApiService.generateOfferLetter({
         template_file: templateFile,
-        data: fieldValues,
-        output_format: 'pdf'
+        data: offerData,
+        output_format: 'both'
       });
-      if (!response.success || !response.files?.pdf) throw new Error("API service failed to regenerate the PDF.");
-      const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-      if (!pdfBlob) throw new Error("Failed to download the regenerated PDF blob.");
-      const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-      
-      const { error: uploadError } = await supabase.storage.from('offer-letters').upload(filePath, pdfBlob, {
-          contentType: 'application/pdf',
-          upsert: true
-      });
-      if (uploadError) throw new Error(`Failed to re-upload to Supabase bucket: ${uploadError.message}`);
 
-      // ====== THE FIX IS HERE: Create a new SIGNED URL for the updated file ======
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('offer-letters')
-        .createSignedUrl(filePath, 300); // New 5-minute URL
-      
-      if (signedUrlError) {
-        throw new Error(`Could not create signed URL for update: ${signedUrlError.message}`);
+      if (response.success) {
+        let pdfFile: Blob | null = null;
+        let sessionPdfUrl: string | null = null;
+
+        try {
+          if (response.files?.pdf) {
+            pdfFile = await offerApiService.downloadFile(response.files.pdf);
+            if (pdfFile) {
+              sessionPdfUrl = URL.createObjectURL(pdfFile);
+            }
+          }
+
+          try {
+            const salaryString = fieldValues.salary?.replace(/[^0-9.-]+/g, '') || '0';
+            const salaryAmount = parseFloat(salaryString);
+            
+            const { data: existingOffer, error: findError } = await supabase
+              .from('offers')
+              .select('id, logs')
+              .eq('job_application_id', selectedWorkflowForOffer.job_application_id)
+              .single();
+
+            if (!findError && existingOffer) {
+              const existingLogs = existingOffer.logs || [];
+              const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
+                (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
+
+              const updatedOfferData = {
+                salary_amount: salaryAmount > 0 ? salaryAmount : 50000,
+                currency: fieldValues.currency || 'USD',
+                start_date: fieldValues.start_date ? new Date(fieldValues.start_date).toISOString() : null,
+                offer_letter_url: response.files?.pdf || null,
+                session_pdf_url: sessionPdfUrl,
+                benefits: fieldValues.benefits ? 
+                  (typeof fieldValues.benefits === 'string' ? [fieldValues.benefits] : Array.isArray(fieldValues.benefits) ? fieldValues.benefits : []) : 
+                  [],
+                signing_bonus: fieldValues.signing_bonus ? parseFloat(String(fieldValues.signing_bonus).replace(/[^0-9.-]+/g, '')) : null,
+                equity_percentage: fieldValues.equity_percentage ? parseFloat(String(fieldValues.equity_percentage)) : null,
+                probation_period_months: fieldValues.probation_period_months ? parseInt(String(fieldValues.probation_period_months)) : null,
+                notice_period_days: fieldValues.notice_period_days ? parseInt(String(fieldValues.notice_period_days)) : null,
+                logs: JSON.stringify([
+                  ...updatedLogs,
+                  {
+                    timestamp: new Date().toISOString(),
+                    action: 'offer_regenerated',
+                    api_request_id: response.request_id,
+                    session_pdf_url: sessionPdfUrl,
+                    storage_url: response.files?.pdf
+                  }
+                ]),
+                updated_at: new Date().toISOString()
+              };
+
+              await supabase
+                .from('offers')
+                .update(updatedOfferData as any)
+                .eq('id', existingOffer.id);
+            }
+          } catch (offerError) {
+            console.error('Error updating offer record during regeneration:', offerError);
+          }
+        } catch (fileError) {
+          console.error('Error handling regenerated files:', fileError);
+        }
+
+        await supabase
+          .from('offer_workflow')
+          .update({
+            generated_offer_content: JSON.stringify(fieldValues),
+            offer_details: {
+              ...fieldValues,
+              pdf_file_id: response.files?.pdf,
+              docx_file_id: response.files?.docx,
+              offer_letter_url: response.files?.pdf,
+              session_pdf_url: sessionPdfUrl,
+              api_request_id: response.request_id,
+              regenerated_at: new Date().toISOString()
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedWorkflowForOffer.id);
+
+        setGeneratedOfferUrl(sessionPdfUrl);
+        setGeneratedOfferData({
+          ...fieldValues,
+          pdf_file_id: response.files?.pdf,
+          docx_file_id: response.files?.docx,
+          offer_letter_url: response.files?.pdf,
+          session_pdf_url: sessionPdfUrl,
+          api_request_id: response.request_id
+        });
+        setPreviewPdfUrl(sessionPdfUrl);
+
+        toast({
+          title: "Offer Letter Regenerated!",
+          description: "The offer letter has been updated with your changes.",
+        });
+      } else {
+        throw new Error(response.message || 'Failed to regenerate offer letter');
       }
-      const securePreviewUrl = signedUrlData.signedUrl;
-      // ===========================================================================
-
-      // (Database update logic remains the same)
-      const permanentDbUrl = supabase.storage.from('offer-letters').getPublicUrl(filePath).data.publicUrl;
-      let formattedStartDate = null;
-      if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-          const parts = fieldValues.start_date.split(/[/.-]/);
-          if (parts.length === 3) formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-      const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-      const salaryAmount = parseFloat(salaryString) || 0;
-      const offerDataForTable = {
-        job_application_id: selectedWorkflowForOffer.job_application_id,
-        salary_amount: salaryAmount,
-        currency: fieldValues.currency || 'USD',
-        start_date: formattedStartDate,
-        benefits: fieldValues.benefits || [],
-        offer_letter_url: permanentDbUrl,
-        status: 'draft' as const,
-      };
-      await supabase.from('offers').upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      await supabase.from('offer_workflow').update({
-          offer_letter_url: permanentDbUrl,
-          offer_details: { ...fieldValues },
-          updated_at: new Date().toISOString()
-      }).eq('id', selectedWorkflowForOffer.id);
-
-      // Use the new SECURE, TEMPORARY signed URL to refresh the preview
-      setPreviewPdfUrl(securePreviewUrl);
-      
-      toast({
-        title: "Offer Letter Updated!",
-        description: "The preview has been refreshed.",
-      });
-
     } catch (error) {
       console.error('Error in regenerateOfferWithChanges:', error);
       toast({
-        title: "Update Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        title: "Regeneration Failed",
+        description: error instanceof Error ? error.message : "Failed to regenerate offer letter",
         variant: "destructive",
       });
     } finally {
       setIsRegenerating(false);
     }
-};
-
-// const regenerateOfferWithChanges = async () => {
-//     if (!templateFile || !selectedWorkflowForOffer) {
-//       toast({
-//         title: "Error",
-//         description: "Template file or workflow not found",
-//         variant: "destructive"
-//       });
-//       return;
-//     }
-
-//     setIsRegenerating(true);
-//     try {
-//       // Step 1: Generate the new PDF content using the updated fieldValues
-//       const response = await offerApiService.generateOfferLetter({
-//         template_file: templateFile,
-//         data: fieldValues, // Use the latest data from the "Quick Edits" panel
-//         output_format: 'pdf'
-//       });
-
-//       if (!response.success || !response.files?.pdf) {
-//         throw new Error("API service failed to regenerate the PDF.");
-//       }
-
-//       const pdfBlob = await offerApiService.downloadFile(response.files.pdf);
-//       if (!pdfBlob) {
-//         throw new Error("Failed to download the regenerated PDF blob.");
-//       }
-
-//       // Step 2: Use the SAME predictable file path to ensure we overwrite the old file
-//       const filePath = `offer-${selectedWorkflowForOffer.job_application_id}.pdf`;
-
-//       // Step 3: Upload/Overwrite the file in the Supabase bucket
-//       const { error: uploadError } = await supabase.storage
-//         .from('offer-letters') // Ensure this bucket name is correct
-//         .upload(filePath, pdfBlob, {
-//           contentType: 'application/pdf',
-//           upsert: true // This will replace the old file
-//         });
-
-//       if (uploadError) {
-//         throw new Error(`Failed to re-upload to Supabase bucket: ${uploadError.message}`);
-//       }
-
-//       // Step 4: Get the public URL. It will be the same as before, but we get it again to be safe.
-//       const { data: urlData } = supabase.storage
-//         .from('offer-letters')
-//         .getPublicUrl(filePath);
-
-//       const supabaseFileUrl = urlData.publicUrl;
-
-//       // Step 5: Update the 'offers' table with the new details
-//       let formattedStartDate = null;
-//       if (fieldValues.start_date && typeof fieldValues.start_date === 'string') {
-//         const parts = fieldValues.start_date.split(/[/.-]/);
-//         if (parts.length === 3) {
-//             formattedStartDate = parts[0].length === 4 ? fieldValues.start_date : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-//         }
-//       }
-//       const salaryString = String(fieldValues.salary || '0').replace(/[^0-9.-]+/g, '');
-//       const salaryAmount = parseFloat(salaryString) || 0;
-//       const offerDataForTable = {
-//         job_application_id: selectedWorkflowForOffer.job_application_id,
-//         salary_amount: salaryAmount,
-//         currency: fieldValues.currency || 'USD',
-//         start_date: formattedStartDate,
-//         benefits: fieldValues.benefits || [],
-//         offer_letter_url: supabaseFileUrl, // Update with the same URL
-//         status: 'draft' as const,
-//       };
-//       await supabase.from('offers').upsert(offerDataForTable, { onConflict: 'job_application_id' });
-      
-//       // Step 6: Update the 'offer_workflow' table with the regenerated details
-//       await supabase
-//         .from('offer_workflow')
-//         .update({
-//           offer_letter_url: supabaseFileUrl,
-//           offer_details: { ...fieldValues },
-//           updated_at: new Date().toISOString()
-//         })
-//         .eq('id', selectedWorkflowForOffer.id);
-
-//       // Step 7: Refresh the preview with the new content
-//       // We add a timestamp query parameter to bust the browser cache and force a reload
-//       setPreviewPdfUrl(`${supabaseFileUrl}?t=${new Date().getTime()}`);
-      
-//       toast({
-//         title: "Offer Letter Updated!",
-//         description: "The preview has been refreshed with your changes.",
-//       });
-
-//     } catch (error) {
-//       console.error('Error in regenerateOfferWithChanges:', error);
-//       toast({
-//         title: "Update Failed",
-//         description: error instanceof Error ? error.message : "An unknown error occurred",
-//         variant: "destructive",
-//       });
-//     } finally {
-//       setIsRegenerating(false);
-//     }
-// };
+  };
 
   const handleInputChange = (fieldId: string, value: string) => {
     setFieldValues(prev => ({
@@ -2734,7 +2292,7 @@ const regenerateOfferWithChanges = async () => {
           workflow={selectedWorkflow}
           onApprove={approveOffer}
           onReject={rejectOffer}
-          onRevision={requestRevision}
+          onRevision={() => console.log("Revision requested")}
         />
       )}
 
@@ -2745,8 +2303,6 @@ const regenerateOfferWithChanges = async () => {
 
 
 export default OfferWorkflowManager;
-
-
 
 // import React, { useState, useEffect, useRef } from 'react';
 // import { Card, CardContent } from '@/components/ui/card';
@@ -2762,12 +2318,11 @@ export default OfferWorkflowManager;
 // import { supabase } from '@/integrations/supabase/client';
 // import { useToast } from '@/hooks/use-toast';
 // import { useAuth } from '@/hooks/useAuth';
-// import { CheckCircle, Clock, FileText, Mail, UserCheck, AlertCircle, Download, Upload, Plus, Eye } from 'lucide-react'; // MERGED: Added Eye icon
+// import { CheckCircle, Clock, FileText, Mail, UserCheck, AlertCircle, Download, Upload, Plus } from 'lucide-react';
 // import OfferLetterApiService, { formatCandidateDataForOffer, generateOfferEmailContent, TemplateField } from '@/services/offerLetterApi';
 // import { FileCheck } from 'lucide-react';
 // import {  Shield, XCircle, Loader2 } from 'lucide-react';
 
-// import { HRApprovalDialog } from '@/components/offer-workflow/hr-approval/HRApprovalDialog'; 
 
 // interface OfferWorkflow {
 //   id: string;
@@ -2804,6 +2359,7 @@ export default OfferWorkflowManager;
 //   estimated_completion_date?: string;
 //   priority_level: number;
   
+//   // Related fields from the join query
 //   job_applications?: {
 //     id: string;
 //     job_id: string;
@@ -2840,9 +2396,6 @@ export default OfferWorkflowManager;
 //   const [actionLoading, setActionLoading] = useState<string | null>(null);
 //   const [selectedWorkflow, setSelectedWorkflow] = useState<OfferWorkflow | null>(null);
 //   const [hrComments, setHrComments] = useState('');
-
-//    const [showHrDialog, setShowHrDialog] = useState(false);
-
 //   const [offerAmount, setOfferAmount] = useState('');
 //   const [templateFile, setTemplateFile] = useState<File | null>(null);
 //   const [generatedOfferUrl, setGeneratedOfferUrl] = useState<string | null>(null);
@@ -2876,39 +2429,31 @@ export default OfferWorkflowManager;
 //   const { toast } = useToast();
 //   const { profile } = useAuth();
 
+//   // **ADDED:** State for the background check popup
 //   const [showResultDialog, setShowResultDialog] = useState(false);
 //   const [bgCheckResult, setBgCheckResult] = useState<{ status: string; remarks: string } | null>(null);
-  
-//   // MERGED: State for HR approval preview dialog
-//   const [showHrPreviewDialog, setShowHrPreviewDialog] = useState(false);
-//   const [hrPreviewPdfUrl, setHrPreviewPdfUrl] = useState<string | null>(null);
-//   const [isPreviewing, setIsPreviewing] = useState(false);
-
 
 //   useEffect(() => {
 //     fetchWorkflows();
 //     fetchUploadedTemplates();
 //   }, []);
 
-//   // MERGED: Cleanup blob URLs when component unmounts or preview changes
+//   // Cleanup blob URLs when component unmounts or preview changes
 //   useEffect(() => {
 //     return () => {
 //       if (previewPdfUrl && previewPdfUrl.startsWith('blob:')) {
 //         URL.revokeObjectURL(previewPdfUrl);
 //       }
-//       if (hrPreviewPdfUrl && hrPreviewPdfUrl.startsWith('blob:')) {
-//         URL.revokeObjectURL(hrPreviewPdfUrl);
-//       }
 //     };
-//   }, [previewPdfUrl, hrPreviewPdfUrl]);
+//   }, [previewPdfUrl]);
 
 //   const cleanupBlobUrl = (url: string | null) => {
 //     if (url && url.startsWith('blob:')) {
 //       URL.revokeObjectURL(url);
 //     }
 //   };
-  
-//     const createWorkflow = async (formData: any) => {
+
+//   const createWorkflow = async (formData: any) => {
 //     setCreating(true);
 //     try {
 //       const newWorkflow = {
@@ -3004,37 +2549,6 @@ export default OfferWorkflowManager;
 //       });
 //     }
 //   };
-  
-//   // MERGED: Function to handle showing the preview for HR
-//   const previewOfferForHr = async (workflow: OfferWorkflow) => {
-//     const pdfFileId = workflow.offer_details?.pdf_file_id;
-//     if (!pdfFileId) {
-//       toast({
-//         title: "Preview Unavailable",
-//         description: "The offer letter PDF could not be found for this workflow.",
-//         variant: "destructive",
-//       });
-//       return;
-//     }
-
-//     setIsPreviewing(true);
-//     try {
-//       const blob = await offerApiService.downloadFile(pdfFileId);
-//       const url = URL.createObjectURL(blob);
-//       setHrPreviewPdfUrl(url);
-//       setShowHrPreviewDialog(true);
-//     } catch (error) {
-//       console.error("Error generating HR preview:", error);
-//       toast({
-//         title: "Preview Failed",
-//         description: "Could not load the offer letter for preview.",
-//         variant: "destructive",
-//       });
-//     } finally {
-//       setIsPreviewing(false);
-//     }
-//   };
-
 
 //   const advanceWorkflow = async (workflowId: string, stepData: any = {}) => {
 //     setActionLoading(workflowId);
@@ -3241,6 +2755,7 @@ export default OfferWorkflowManager;
 //     }
 //   };
 
+//   // **MODIFIED:** This function has been replaced with your requested logic
 //   const runBackgroundCheck = async (workflow: OfferWorkflow) => {
 //     if (!workflow.job_applications?.candidates?.profile_id) {
 //         toast({ title: "Error", description: "Candidate profile ID not found.", variant: "destructive" });
@@ -3248,12 +2763,14 @@ export default OfferWorkflowManager;
 //     }
     
 //     setActionLoading(workflow.id);
-//     setShowResultDialog(true);
-//     setBgCheckResult(null);
+//     setShowResultDialog(true); // Open the modal immediately
+//     setBgCheckResult(null); // Clear previous results
 
 //     try {
+//         // Simulate a 2-3 second check for a better user experience
 //         await new Promise(resolve => setTimeout(resolve, 2500));
 
+//         // 1. Fetch the background check data from the 'candidates' table.
 //         const { data: candidateData, error: fetchError } = await supabase
 //             .from('candidates')
 //             .select('background_check_status, background_check_remarks')
@@ -3265,9 +2782,12 @@ export default OfferWorkflowManager;
 //         const status = candidateData?.background_check_status || 'pending';
 //         const remarks = candidateData?.background_check_remarks || 'No remarks found.';
 
+//         // Display the result in the modal
 //         setBgCheckResult({ status, remarks });
 
+//         // 2. Make the automatic workflow decision.
 //         if (status === 'completed' || status === 'not_required') {
+//             // SUCCESS: Advance the workflow
 //             await advanceWorkflow(workflow.id, {
 //                 background_check_status: 'completed',
 //                 background_check_completed_at: new Date().toISOString()
@@ -3276,26 +2796,30 @@ export default OfferWorkflowManager;
 //             toast({ title: "Check Passed", description: "Advancing to the next step." });
 
 //         } else if (status === 'failed') {
+//             // FAILURE: Cancel the workflow and reject the candidate
 //             await supabase
 //                 .from('offer_workflow')
 //                 .update({ status: 'cancelled', updated_at: new Date().toISOString() })
 //                 .eq('id', workflow.id);
             
+//             // Also update the main application status to 'rejected'
 //             await supabase
 //                 .from('job_applications')
 //                 .update({ status: 'rejected' })
 //                 .eq('id', workflow.job_application_id);
 
 //             toast({ title: "Check Failed", description: "This offer workflow has been cancelled.", variant: "destructive" });
-//             await fetchWorkflows();
+//             await fetchWorkflows(); // Refresh the list to show the change
         
 //         } else {
+//             // PENDING: Do nothing, just show the status
 //             toast({ title: "Check Pending", description: "The background check is still in progress." });
 //         }
 
 //     } catch (error: any) {
 //         console.error('Error running background check:', error);
 //         toast({ title: "Error", description: "Could not retrieve background check status.", variant: "destructive" });
+//         // Close the modal on error
 //         setShowResultDialog(false);
 //     } finally {
 //         setActionLoading(null);
@@ -3438,51 +2962,36 @@ export default OfferWorkflowManager;
 //     }
 //   };
 
-//   // MERGED: This is your partner's superior, bug-free version of the function
 //   const sendToCandidate = async (workflow: OfferWorkflow) => {
+//     if (!generatedOfferUrl && !workflow.offer_details?.pdf_file_id) {
+//       toast({
+//         title: "No Offer Letter",
+//         description: "Please generate an offer letter first.",
+//         variant: "destructive"
+//       });
+//       return;
+//     }
+
 //     setActionLoading(workflow.id);
     
 //     try {
-//       // FIX: Directly refetch the workflow from the database before sending.
-//       const { data: latestWorkflow, error: fetchError } = await supabase
-//         .from('offer_workflow')
-//         .select(`
-//           *,
-//           job_applications (
-//             candidates (
-//               profiles ( first_name, last_name, email )
-//             ),
-//             jobs ( title )
-//           )
-//         `)
-//         .eq('id', workflow.id)
-//         .single();
+//       const candidate = workflow.job_applications?.candidates?.profiles;
+//       const job = workflow.job_applications?.jobs;
 
-//       if (fetchError || !latestWorkflow) {
-//         console.error("Fetch Error:", fetchError);
-//         throw new Error("Could not fetch the latest workflow details before sending.");
+//       if (!candidate || !job) {
+//         throw new Error('Missing candidate or job data');
 //       }
 
-//       const pdfFileId = latestWorkflow.offer_details?.pdf_file_id;
-
-//       if (!pdfFileId) {
-//         toast({
-//           title: "No Offer Letter",
-//           description: "The latest version of the offer letter could not be found.",
-//           variant: "destructive"
-//         });
-//         setActionLoading(null);
-//         return;
+//       let pdfBlob: Blob;
+      
+//       if (workflow.offer_details?.pdf_file_id) {
+//         pdfBlob = await offerApiService.downloadFile(workflow.offer_details.pdf_file_id);
+//       } else if (generatedOfferUrl) {
+//         const response = await fetch(generatedOfferUrl);
+//         pdfBlob = await response.blob();
+//       } else {
+//         throw new Error('No offer letter available');
 //       }
-
-//       const candidate = latestWorkflow.job_applications?.candidates?.profiles;
-//       const job = latestWorkflow.job_applications?.jobs;
-
-//       if (!candidate || !job || !candidate.email) {
-//         throw new Error('Missing latest candidate or job data for sending the offer.');
-//       }
-
-//       const pdfBlob = await offerApiService.downloadFile(pdfFileId);
 
 //       const pdfFile = new File([pdfBlob], `offer_letter_${candidate.first_name}_${candidate.last_name}.pdf`, {
 //         type: 'application/pdf'
@@ -3496,7 +3005,7 @@ export default OfferWorkflowManager;
 //       const response = await offerApiService.sendOfferLetter({
 //         pdf_file: pdfFile,
 //         email_data: {
-//           emails: [candidate.email],
+//           emails: [candidate.email || ''],
 //           subject: `Job Offer - ${job.title}`,
 //           html_content: emailContent
 //         }
@@ -3516,7 +3025,7 @@ export default OfferWorkflowManager;
 //           const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
 //             (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
           
-//           await supabase
+//           const { error: offerUpdateError } = await supabase
 //             .from('offers')
 //             .update({
 //               status: 'sent',
@@ -3533,17 +3042,25 @@ export default OfferWorkflowManager;
 //               updated_at: new Date().toISOString()
 //             } as any)
 //             .eq('id', currentOffer.id);
+
+//           if (offerUpdateError) {
+//             console.error('Error updating offers table:', offerUpdateError);
+//           } else {
+//             console.log('Offers table updated successfully - status set to sent');
+//           }
+//         } else {
+//           console.error('Error finding offer to update:', getCurrentOfferError);
 //         }
 //       } catch (offerError) {
 //         console.error('Error updating offers table:', offerError);
 //       }
       
 //       await advanceWorkflow(workflow.id, {
-//         offer_letter_url: pdfFileId,
+//         offer_letter_url: workflow.offer_details?.session_pdf_url || workflow.offer_details?.pdf_file_id || generatedOfferUrl,
 //         sent_to_candidate_at: new Date().toISOString(),
 //         candidate_notification_sent: true,
 //         logs: [
-//           ...(latestWorkflow.logs || []),
+//           ...(workflow.logs || []),
 //           {
 //             timestamp: new Date().toISOString(),
 //             action: 'offer_sent',
@@ -3571,7 +3088,6 @@ export default OfferWorkflowManager;
 //       setActionLoading(null);
 //     }
 //   };
-
 
 //   const checkEmailStatus = async (requestId: string) => {
 //     try {
@@ -3768,6 +3284,7 @@ export default OfferWorkflowManager;
 //             </Badge>
 //           );
 //         }
+//         // **REMOVED:** The "Skip Background Check" button has been removed from here.
 //         return (
 //           <Button 
 //             onClick={() => runBackgroundCheck(workflow)}
@@ -3907,69 +3424,57 @@ export default OfferWorkflowManager;
 //             </Badge>
 //           );
 //         }
-//         // MERGED: This JSX now includes the "Preview Offer" button
 //         return (
-//           <div className="flex items-center space-x-2">
-//             <Button
-//               variant="outline"
-//               size="sm"
-//               onClick={() => previewOfferForHr(workflow)}
-//               disabled={isPreviewing || !workflow.offer_details?.pdf_file_id}
-//             >
-//               <Eye className="w-4 h-4 mr-2" />
-//               {isPreviewing ? 'Loading...' : 'Preview Offer'}
-//             </Button>
-//             <Dialog>
-//               <DialogTrigger asChild>
-//                 <Button size="sm" onClick={() => setSelectedWorkflow(workflow)}>
-//                   Review & Approve
-//                 </Button>
-//               </DialogTrigger>
-//               <DialogContent>
-//                 <DialogHeader>
-//                   <DialogTitle>HR Approval</DialogTitle>
-//                   <DialogDescription>
-//                     Review and approve offer for {candidate?.first_name} {candidate?.last_name}
-//                   </DialogDescription>
-//                 </DialogHeader>
-//                 <div className="space-y-4">
-//                   {workflow.offer_details && (
-//                     <div className="p-4 bg-muted rounded-lg">
-//                       <h4 className="font-medium mb-2">Offer Details</h4>
-//                       <p><strong>Position:</strong> {workflow.offer_details.position}</p>
-//                       <p><strong>Salary:</strong> ${workflow.final_offer_amount}</p>
-//                     </div>
-//                   )}
-//                   <div>
-//                     <Label htmlFor="comments">HR Comments</Label>
-//                     <Textarea
-//                       id="comments"
-//                       value={hrComments}
-//                       onChange={(e) => setHrComments(e.target.value)}
-//                       placeholder="Add any comments or notes..."
-//                     />
+//           <Dialog>
+//             <DialogTrigger asChild>
+//               <Button size="sm" onClick={() => setSelectedWorkflow(workflow)}>
+//                 Review & Approve
+//               </Button>
+//             </DialogTrigger>
+//             <DialogContent>
+//               <DialogHeader>
+//                 <DialogTitle>HR Approval</DialogTitle>
+//                 <DialogDescription>
+//                   Review and approve offer for {candidate?.first_name} {candidate?.last_name}
+//                 </DialogDescription>
+//               </DialogHeader>
+//               <div className="space-y-4">
+//                 {workflow.offer_details && (
+//                   <div className="p-4 bg-muted rounded-lg">
+//                     <h4 className="font-medium mb-2">Offer Details</h4>
+//                     <p><strong>Position:</strong> {workflow.offer_details.position}</p>
+//                     <p><strong>Salary:</strong> ${workflow.final_offer_amount}</p>
 //                   </div>
-//                   <div className="flex space-x-2">
-//                     <Button 
-//                       onClick={() => approveOffer(workflow)}
-//                       disabled={isLoading}
-//                       className="flex-1"
-//                     >
-//                       {isLoading ? 'Approving...' : 'Approve Offer'}
-//                     </Button>
-//                     <Button 
-//                       onClick={() => rejectOffer(workflow)}
-//                       disabled={isLoading}
-//                       variant="destructive"
-//                       className="flex-1"
-//                     >
-//                       {isLoading ? 'Rejecting...' : 'Reject Offer'}
-//                     </Button>
-//                   </div>
+//                 )}
+//                 <div>
+//                   <Label htmlFor="comments">HR Comments</Label>
+//                   <Textarea
+//                     id="comments"
+//                     value={hrComments}
+//                     onChange={(e) => setHrComments(e.target.value)}
+//                     placeholder="Add any comments or notes..."
+//                   />
 //                 </div>
-//               </DialogContent>
-//             </Dialog>
-//           </div>
+//                 <div className="flex space-x-2">
+//                   <Button 
+//                     onClick={() => approveOffer(workflow)}
+//                     disabled={isLoading}
+//                     className="flex-1"
+//                   >
+//                     {isLoading ? 'Approving...' : 'Approve Offer'}
+//                   </Button>
+//                   <Button 
+//                     onClick={() => rejectOffer(workflow)}
+//                     disabled={isLoading}
+//                     variant="destructive"
+//                     className="flex-1"
+//                   >
+//                     {isLoading ? 'Rejecting...' : 'Reject Offer'}
+//                   </Button>
+//                 </div>
+//               </div>
+//             </DialogContent>
+//           </Dialog>
 //         );
 //       case 'candidate_review':
 //         if (!workflow.sent_to_candidate_at) {
@@ -4007,6 +3512,8 @@ export default OfferWorkflowManager;
 //     const stepObj = WORKFLOW_STEPS.find(s => s.id === step);
 //     return stepObj ? stepObj.step : 1;
 //   };
+
+//   // ... (generateOfferWithFields, regenerateOfferWithChanges, handleInputChange functions remain the same)
   
 //   const generateOfferWithFields = async () => {
 //     if (!templateFile || !selectedWorkflowForOffer) {
@@ -4021,6 +3528,7 @@ export default OfferWorkflowManager;
 //     try {
 //       setGeneratingOffer(true);
 
+//       // Generate offer letter using the API
 //       const offerData = {
 //         candidate_name: fieldValues.candidate_name || '',
 //         position: fieldValues.position || '',
@@ -4037,17 +3545,45 @@ export default OfferWorkflowManager;
 //       });
 
 //       if (response.success) {
+//         console.log('Offer generation response:', response);
+        
+//         // Download the generated files from the API to browser session
 //         let pdfFile: Blob | null = null;
+//         let docxFile: Blob | null = null;
+//         let offerLetterUrl: string | null = null;
 //         let sessionPdfUrl: string | null = null;
 
 //         try {
+//           // Download PDF and DOCX files if they exist
 //           if (response.files?.pdf) {
+//             console.log('Downloading PDF file to session:', response.files.pdf);
 //             pdfFile = await offerApiService.downloadFile(response.files.pdf);
+            
+//             // Create a blob URL for immediate preview
 //             if (pdfFile) {
 //               sessionPdfUrl = URL.createObjectURL(pdfFile);
+//               console.log('Created session PDF URL for preview:', sessionPdfUrl);
+//               console.log('PDF file size:', pdfFile.size, 'bytes');
+//               console.log('PDF file type:', pdfFile.type);
 //             }
 //           }
+//           if (response.files?.docx) {
+//             console.log('Downloading DOCX file to session:', response.files.docx);
+//             docxFile = await offerApiService.downloadFile(response.files.docx);
+//           }
 
+//           // Upload files to Supabase storage bucket (optional - for permanent storage)
+//           if (pdfFile && profile?.id) {
+//             console.log('Skipping PDF upload to storage bucket - keeping server-side only');
+//             // Use session URL for preview and API URL for storage
+//             offerLetterUrl = response.files?.pdf || sessionPdfUrl;
+//           } else {
+//             // Use session URL for preview
+//             offerLetterUrl = sessionPdfUrl;
+//           }
+
+//           // Create offer record in the database with 'draft' status
+//           console.log('Creating offer record in offers table...');
 //           try {
 //             const salaryString = fieldValues.salary?.replace(/[^0-9.-]+/g, '') || '0';
 //             const salaryAmount = parseFloat(salaryString);
@@ -4057,7 +3593,7 @@ export default OfferWorkflowManager;
 //               salary_amount: salaryAmount > 0 ? salaryAmount : 50000,
 //               currency: fieldValues.currency || 'USD',
 //               start_date: fieldValues.start_date ? new Date(fieldValues.start_date).toISOString() : null,
-//               offer_letter_url: response.files?.pdf || null,
+//               offer_letter_url: response.files?.pdf || null, // Use server-side URL
 //               status: 'draft' as const,
 //               benefits: fieldValues.benefits ? 
 //                 (typeof fieldValues.benefits === 'string' ? [fieldValues.benefits] : Array.isArray(fieldValues.benefits) ? fieldValues.benefits : []) : 
@@ -4084,29 +3620,46 @@ export default OfferWorkflowManager;
 //               .select()
 //               .single();
 
-//             if (!createError && newOffer) {
+//             if (createError) {
+//               console.error('Error creating offer record:', createError);
+//               // Don't throw error, just log it and continue
+//             } else {
+//               console.log('Offer record created successfully:', newOffer);
+              
+//               // Set offer expiration (7 days from now)
 //               try {
 //                 const expirationDate = new Date();
 //                 expirationDate.setDate(expirationDate.getDate() + 7);
                 
-//                 await supabase
+//                 const { error: expirationError } = await supabase
 //                   .from('offers')
 //                   .update({
 //                     expires_at: expirationDate.toISOString(),
 //                     updated_at: new Date().toISOString()
 //                   } as any)
 //                   .eq('id', newOffer.id);
+
+//                 if (expirationError) {
+//                   console.error('Error setting offer expiration:', expirationError);
+//                 } else {
+//                   console.log(`Offer expiration set to ${expirationDate.toISOString()}`);
+//                 }
 //               } catch (expirationError) {
 //                 console.error('Error in setting expiration:', expirationError);
 //               }
 //             }
 //           } catch (offerError) {
 //             console.error('Error handling offer record:', offerError);
+//             // Don't throw error, just log it and continue
 //           }
+
 //         } catch (fileError) {
 //           console.error('Error handling files:', fileError);
+//           // Continue with workflow update even if file handling fails
 //         }
 
+//         // Update workflow in database (WITHOUT advancing to next step yet)
+//         console.log('Updating workflow with server-side PDF URL...');
 //         const { error: updateError } = await supabase
 //           .from('offer_workflow')
 //           .update({
@@ -4115,8 +3668,8 @@ export default OfferWorkflowManager;
 //               ...fieldValues,
 //               pdf_file_id: response.files?.pdf,
 //               docx_file_id: response.files?.docx,
-//               offer_letter_url: response.files?.pdf,
-//               session_pdf_url: sessionPdfUrl,
+//               offer_letter_url: response.files?.pdf, // Use server-side URL
+//               session_pdf_url: sessionPdfUrl, // Keep session URL for preview
 //               api_request_id: response.request_id
 //             },
 //             offer_generated_at: new Date().toISOString(),
@@ -4124,24 +3677,45 @@ export default OfferWorkflowManager;
 //           })
 //           .eq('id', selectedWorkflowForOffer.id);
 
-//         if (updateError) console.error('Error updating workflow:', updateError);
+//         if (updateError) {
+//           console.error('Error updating workflow:', updateError);
+//         } else {
+//           console.log('Workflow updated successfully with server-side PDF URL');
+//         }
 
-//         setGeneratedOfferUrl(sessionPdfUrl);
+//         // Set the generated offer URL for preview (session URL for immediate preview)
+//         setGeneratedOfferUrl(sessionPdfUrl); // Use session URL for immediate preview
 //         setGeneratedOfferData({
 //           ...fieldValues,
 //           pdf_file_id: response.files?.pdf,
 //           docx_file_id: response.files?.docx,
-//           offer_letter_url: response.files?.pdf,
-//           session_pdf_url: sessionPdfUrl,
+//           offer_letter_url: response.files?.pdf, // Server-side URL for storage
+//           session_pdf_url: sessionPdfUrl, // Session URL for preview
 //           api_request_id: response.request_id
 //         });
-//         setPreviewPdfUrl(sessionPdfUrl);
+//         setPreviewPdfUrl(sessionPdfUrl); // Use session URL for preview
 
 //         setShowFieldsDialog(false);
-//         setShowPreviewDialog(true);
+//         console.log('Opening preview dialog with session URL for immediate preview...', { 
+//           showPreviewDialog: true, 
+//           previewPdfUrl: sessionPdfUrl,
+//           sessionPdfUrl,
+//           serverSideUrl: response.files?.pdf,
+//           generatedOfferData: {
+//             ...fieldValues,
+//             pdf_file_id: response.files?.pdf,
+//             docx_file_id: response.files?.docx,
+//             offer_letter_url: response.files?.pdf,
+//             session_pdf_url: sessionPdfUrl,
+//             api_request_id: response.request_id
+//           }
+//         });
+//         setShowPreviewDialog(true); // Show preview with session URL
+
 //       } else {
 //         throw new Error(response.message || 'Failed to generate offer letter');
 //       }
+
 //     } catch (error) {
 //       console.error('Error in generateOfferWithFields:', error);
 //       toast({
@@ -4167,6 +3741,7 @@ export default OfferWorkflowManager;
 //     try {
 //       setIsRegenerating(true);
 
+//       // Generate offer letter using the API with updated field values
 //       const offerData = {
 //         candidate_name: fieldValues.candidate_name || '',
 //         position: fieldValues.position || '',
@@ -4183,18 +3758,37 @@ export default OfferWorkflowManager;
 //       });
 
 //       if (response.success) {
+//         console.log('Offer regeneration response:', response);
+        
+//         // Download and process files to session first
 //         let pdfFile: Blob | null = null;
+//         let offerLetterUrl: string | null = null;
 //         let sessionPdfUrl: string | null = null;
 
 //         try {
 //           if (response.files?.pdf) {
+//             console.log('Downloading regenerated PDF file to session:', response.files.pdf);
 //             pdfFile = await offerApiService.downloadFile(response.files.pdf);
+            
+//             // Create a blob URL for immediate preview
 //             if (pdfFile) {
 //               sessionPdfUrl = URL.createObjectURL(pdfFile);
+//               console.log('Created session PDF URL for regenerated preview:', sessionPdfUrl);
 //             }
 //           }
 
+//           // Upload to storage bucket (optional - for permanent storage)
+//           if (pdfFile && profile?.id) {
+//             console.log('Skipping regenerated PDF upload to storage bucket - keeping server-side only');
+//             // Use server-side URL from API
+//             offerLetterUrl = response.files?.pdf || sessionPdfUrl;
+//           } else {
+//             offerLetterUrl = sessionPdfUrl;
+//           }
+
+//           // Update offer record in database if it exists
 //           try {
+//             console.log('Updating existing offer record for regeneration...');
 //             const salaryString = fieldValues.salary?.replace(/[^0-9.-]+/g, '') || '0';
 //             const salaryAmount = parseFloat(salaryString);
             
@@ -4205,6 +3799,7 @@ export default OfferWorkflowManager;
 //               .single();
 
 //             if (!findError && existingOffer) {
+//               // Update existing offer record
 //               const existingLogs = existingOffer.logs || [];
 //               const updatedLogs = Array.isArray(existingLogs) ? existingLogs : 
 //                 (typeof existingLogs === 'string' ? JSON.parse(existingLogs) : []);
@@ -4235,19 +3830,29 @@ export default OfferWorkflowManager;
 //                 updated_at: new Date().toISOString()
 //               };
 
-//               await supabase
+//               const { error: updateError } = await supabase
 //                 .from('offers')
 //                 .update(updatedOfferData as any)
 //                 .eq('id', existingOffer.id);
+
+//               if (updateError) {
+//                 console.error('Error updating offer record:', updateError);
+//               } else {
+//                 console.log('Offer record updated successfully for regeneration');
+//               }
+//             } else {
+//               console.error('No existing offer found to update:', findError);
 //             }
 //           } catch (offerError) {
 //             console.error('Error updating offer record during regeneration:', offerError);
 //           }
+
 //         } catch (fileError) {
 //           console.error('Error handling regenerated files:', fileError);
 //         }
 
-//         await supabase
+//         // Update workflow with new data (WITHOUT advancing step)
+//         const { error: updateError } = await supabase
 //           .from('offer_workflow')
 //           .update({
 //             generated_offer_content: JSON.stringify(fieldValues),
@@ -4255,8 +3860,8 @@ export default OfferWorkflowManager;
 //               ...fieldValues,
 //               pdf_file_id: response.files?.pdf,
 //               docx_file_id: response.files?.docx,
-//               offer_letter_url: response.files?.pdf,
-//               session_pdf_url: sessionPdfUrl,
+//               offer_letter_url: response.files?.pdf, // Use server-side URL
+//               session_pdf_url: sessionPdfUrl, // Keep session URL for preview
 //               api_request_id: response.request_id,
 //               regenerated_at: new Date().toISOString()
 //             },
@@ -4264,24 +3869,33 @@ export default OfferWorkflowManager;
 //           })
 //           .eq('id', selectedWorkflowForOffer.id);
 
-//         setGeneratedOfferUrl(sessionPdfUrl);
+//         if (updateError) {
+//           console.error('Error updating workflow:', updateError);
+//         } else {
+//           console.log('Workflow updated successfully with server-side PDF URL');
+//         }
+
+//         // Update preview data (session URL for immediate preview)
+//         setGeneratedOfferUrl(sessionPdfUrl); // Use session URL for preview
 //         setGeneratedOfferData({
 //           ...fieldValues,
 //           pdf_file_id: response.files?.pdf,
 //           docx_file_id: response.files?.docx,
-//           offer_letter_url: response.files?.pdf,
-//           session_pdf_url: sessionPdfUrl,
+//           offer_letter_url: response.files?.pdf, // Server-side URL for storage
+//           session_pdf_url: sessionPdfUrl, // Session URL for preview
 //           api_request_id: response.request_id
 //         });
-//         setPreviewPdfUrl(sessionPdfUrl);
+//         setPreviewPdfUrl(sessionPdfUrl); // Use session URL for preview
 
 //         toast({
 //           title: "Offer Letter Regenerated!",
 //           description: "The offer letter has been updated with your changes.",
 //         });
+
 //       } else {
 //         throw new Error(response.message || 'Failed to regenerate offer letter');
 //       }
+
 //     } catch (error) {
 //       console.error('Error in regenerateOfferWithChanges:', error);
 //       toast({
@@ -4320,7 +3934,7 @@ export default OfferWorkflowManager;
 //     <div className="space-y-6">
 //       <div className="flex justify-between items-center">
 //         <h2 className="text-2xl font-bold">Offer Management Workflow</h2>
-//         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+//         {/* <Dialog open={showCreateWorkflowDialog} onOpenChange={setShowCreateWorkflowDialog}>
 //           <DialogTrigger asChild>
 //             <Button>
 //               <Plus className="w-4 h-4 mr-2" />
@@ -4331,55 +3945,32 @@ export default OfferWorkflowManager;
 //             <DialogHeader>
 //               <DialogTitle>Create New Offer Workflow</DialogTitle>
 //               <DialogDescription>
-//                 Start a new offer workflow for a job application
+//                 Start a new offer workflow for a selected candidate
 //               </DialogDescription>
 //             </DialogHeader>
 //             <div className="space-y-4">
 //               <div>
-//                 <label className="text-sm font-medium">Job Application ID</label>
+//                 <Label htmlFor="application-select">Select Job Application</Label>
 //                 <Input
-//                   value={formData.job_application_id}
-//                   onChange={(e) => setFormData(prev => ({ ...prev, job_application_id: e.target.value }))}
-//                   placeholder="Enter job application ID"
+//                   id="application-select"
+//                   placeholder="Enter Job Application ID"
+//                   value={selectedApplicationId}
+//                   onChange={(e) => setSelectedApplicationId(e.target.value)}
 //                 />
+//                 <p className="text-sm text-muted-foreground mt-1">
+//                   You can find this ID in the job applications list
+//                 </p>
 //               </div>
-//               <div>
-//                 <label className="text-sm font-medium">Priority Level</label>
-//                 <Select 
-//                   value={String(formData.priority_level)} 
-//                   onValueChange={(value) => setFormData(prev => ({ ...prev, priority_level: parseInt(value) }))}
-//                 >
-//                   <SelectTrigger>
-//                     <SelectValue placeholder="Select priority level" />
-//                   </SelectTrigger>
-//                   <SelectContent>
-//                     <SelectItem value="1">Urgent (1)</SelectItem>
-//                     <SelectItem value="2">High (2)</SelectItem>
-//                     <SelectItem value="3">Medium (3)</SelectItem>
-//                     <SelectItem value="4">Low (4)</SelectItem>
-//                     <SelectItem value="5">Very Low (5)</SelectItem>
-//                   </SelectContent>
-//                 </Select>
-//               </div>
-//               <div>
-//                 <label className="text-sm font-medium">Estimated Completion Date</label>
-//                 <Input
-//                   type="date"
-//                   value={formData.estimated_completion_date}
-//                   onChange={(e) => setFormData(prev => ({ ...prev, estimated_completion_date: e.target.value }))}
-//                 />
-//               </div>
-//               <div className="flex justify-end space-x-2 pt-4">
-//                 <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-//                   Cancel
-//                 </Button>
-//                 <Button onClick={() => createWorkflow(formData)} disabled={creating}>
-//                   {creating ? "Creating..." : "Create Workflow"}
-//                 </Button>
-//               </div>
+//               <Button 
+//                 onClick={() => createWorkflow({ job_application_id: selectedApplicationId })}
+//                 disabled={!selectedApplicationId}
+//                 className="w-full"
+//               >
+//                 Create Workflow
+//               </Button>
 //             </div>
 //           </DialogContent>
-//         </Dialog>
+//         </Dialog> */}
 //       </div>
 
 //       <div className="space-y-4">
@@ -4415,6 +4006,7 @@ export default OfferWorkflowManager;
 //               </div>
 
 //               <div className="space-y-4">
+//                 {/* Progress Bar */}
 //                 <div>
 //                   <div className="flex justify-between text-sm mb-2">
 //                     <span>Progress</span>
@@ -4423,6 +4015,7 @@ export default OfferWorkflowManager;
 //                   <Progress value={(getStepIndex(workflow.current_step) / 5) * 100} className="h-2" />
 //                 </div>
 
+//                 {/* Workflow Steps */}
 //                 <div className="flex items-center justify-between">
 //                   <div className="flex space-x-6">
 //                     {WORKFLOW_STEPS.map((step) => {
@@ -4460,6 +4053,7 @@ export default OfferWorkflowManager;
 //                   )}
 //                 </div>
 
+//                 {/* Status Messages */}
 //                 {workflow.status === 'completed' && workflow.candidate_response === 'accepted' && (
 //                   <div className="flex items-center space-x-2 text-green-600 bg-green-50 p-3 rounded-lg">
 //                     <CheckCircle className="w-4 h-4" />
@@ -4509,7 +4103,8 @@ export default OfferWorkflowManager;
 //           </Card>
 //         )}
 //       </div>
-//        <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+//        {/* Email Status Tracking Dialog */}
+//       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
 //         <DialogContent>
 //           <DialogHeader>
 //             <DialogTitle>Email Delivery Status</DialogTitle>
@@ -4590,6 +4185,69 @@ export default OfferWorkflowManager;
 //         </DialogContent>
 //       </Dialog>
 
+//       {/* Create Workflow Dialog */}
+//       {/* <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+//         <DialogTrigger asChild>
+//           <Button className="mb-4">
+//             <Plus className="w-4 h-4 mr-2" />
+//             Create New Workflow
+//           </Button>
+//         </DialogTrigger>
+//         <DialogContent>
+//           <DialogHeader>
+//             <DialogTitle>Create New Offer Workflow</DialogTitle>
+//             <DialogDescription>
+//               Start a new offer workflow for a job application
+//             </DialogDescription>
+//           </DialogHeader>
+//           <div className="space-y-4">
+//             <div>
+//               <label className="text-sm font-medium">Job Application ID</label>
+//               <Input
+//                 value={formData.job_application_id}
+//                 onChange={(e) => setFormData(prev => ({ ...prev, job_application_id: e.target.value }))}
+//                 placeholder="Enter job application ID"
+//               />
+//             </div>
+//             <div>
+//               <label className="text-sm font-medium">Priority Level</label>
+//               <Select 
+//                 value={String(formData.priority_level)} 
+//                 onValueChange={(value) => setFormData(prev => ({ ...prev, priority_level: parseInt(value) }))}
+//               >
+//                 <SelectTrigger>
+//                   <SelectValue placeholder="Select priority level" />
+//                 </SelectTrigger>
+//                 <SelectContent>
+//                   <SelectItem value="1">Urgent (1)</SelectItem>
+//                   <SelectItem value="2">High (2)</SelectItem>
+//                   <SelectItem value="3">Medium (3)</SelectItem>
+//                   <SelectItem value="4">Low (4)</SelectItem>
+//                   <SelectItem value="5">Very Low (5)</SelectItem>
+//                 </SelectContent>
+//               </Select>
+//             </div>
+//             <div>
+//               <label className="text-sm font-medium">Estimated Completion Date</label>
+//               <Input
+//                 type="date"
+//                 value={formData.estimated_completion_date}
+//                 onChange={(e) => setFormData(prev => ({ ...prev, estimated_completion_date: e.target.value }))}
+//               />
+//             </div>
+//             <div className="flex justify-end space-x-2 pt-4">
+//               <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+//                 Cancel
+//               </Button>
+//               <Button onClick={() => createWorkflow(formData)} disabled={creating}>
+//                 {creating ? "Creating..." : "Create Workflow"}
+//               </Button>
+//             </div>
+//           </div>
+//         </DialogContent>
+//       </Dialog> */}
+
+//       {/* Dynamic Fields Dialog */}
 //       <Dialog open={showFieldsDialog} onOpenChange={setShowFieldsDialog}>
 //         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
 //           <DialogHeader className="shrink-0 p-6 pb-4">
@@ -4599,6 +4257,7 @@ export default OfferWorkflowManager;
 //             </DialogDescription>
 //           </DialogHeader>
           
+//           {/* Scrollable fields area */}
 //           <div className="flex-1 min-h-0 px-6">
 //             <ScrollArea className="h-full">
 //               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
@@ -4656,6 +4315,7 @@ export default OfferWorkflowManager;
 //             </ScrollArea>
 //           </div>
           
+//           {/* Fixed footer */}
 //           <DialogFooter className="shrink-0 p-6 pt-4 border-t">
 //             <Button variant="outline" onClick={() => setShowFieldsDialog(false)}>
 //               Cancel
@@ -4670,8 +4330,11 @@ export default OfferWorkflowManager;
 //         </DialogContent>
 //       </Dialog>
 
+//       {/* Offer Preview Dialog */}
 //       <Dialog open={showPreviewDialog} onOpenChange={(open) => {
+//         console.log('Preview dialog onOpenChange:', open);
 //         if (!open) {
+//           // Clean up blob URLs when dialog closes
 //           if (previewPdfUrl && previewPdfUrl.startsWith('blob:')) {
 //             cleanupBlobUrl(previewPdfUrl);
 //           }
@@ -4691,6 +4354,7 @@ export default OfferWorkflowManager;
           
 //           <div className="flex-1 min-h-0 p-6 pt-4">
 //             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+//               {/* Left side - PDF Preview (2/3 width) */}
 //               <div className="lg:col-span-2 flex flex-col h-full">
 //                 <div className="flex items-center justify-between mb-4 shrink-0">
 //                   <h3 className="text-lg font-semibold">Offer Letter Preview</h3>
@@ -4764,6 +4428,7 @@ export default OfferWorkflowManager;
 //                 </div>
 //               </div>
 
+//               {/* Right side - Edit Panel (1/3 width) */}
 //               <div className="flex flex-col h-full min-h-0">
 //                 <div className="flex items-center justify-between mb-4 shrink-0">
 //                   <h3 className="text-lg font-semibold">Quick Edits</h3>
@@ -4787,6 +4452,7 @@ export default OfferWorkflowManager;
 //                   </Button>
 //                 </div>
                 
+//                 {/* Scrollable fields area with proper height constraints */}
 //                 <div className="flex-1 min-h-0 -mr-2">
 //                   <ScrollArea className="h-full pr-4">
 //                     <div className="space-y-4">
@@ -4833,6 +4499,7 @@ export default OfferWorkflowManager;
 //                           )}
 //                         </div>
 //                       ))}
+//                       {/* Bottom padding to ensure last field is accessible */}
 //                       <div className="h-6"></div>
 //                     </div>
 //                   </ScrollArea>
@@ -4841,6 +4508,7 @@ export default OfferWorkflowManager;
 //             </div>
 //           </div>
           
+//           {/* Fixed footer with buttons */}
 //           <DialogFooter className="shrink-0 p-6 pt-4 border-t bg-white">
 //             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
 //               Close
@@ -4862,62 +4530,15 @@ export default OfferWorkflowManager;
 //           </DialogFooter>
 //         </DialogContent>
 //       </Dialog>
-      
-//         {/* MERGED: HR Preview Dialog */}
-//       <Dialog open={showHrPreviewDialog} onOpenChange={(open) => {
-//         if (!open) {
-//           cleanupBlobUrl(hrPreviewPdfUrl);
-//           setHrPreviewPdfUrl(null);
-//         }
-//         setShowHrPreviewDialog(open);
-//       }}>
-//         <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-//           <DialogHeader>
-//             <DialogTitle>Offer Letter Preview (HR Approval)</DialogTitle>
-//             <DialogDescription>
-//               Review the offer letter before making an approval decision.
-//             </DialogDescription>
-//           </DialogHeader>
-//           <div className="flex-1 -mx-6 -mb-6 mt-4">
-//             {hrPreviewPdfUrl ? (
-//               <object
-//                 data={hrPreviewPdfUrl}
-//                 type="application/pdf"
-//                 className="w-full h-full"
-//                 title="HR Offer Letter Preview"
-//               >
-//                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4">
-//                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-//                   <p>It seems your browser doesn't support embedding PDFs.</p>
-//                   <a
-//                     href={hrPreviewPdfUrl}
-//                     download="offer_letter_preview.pdf"
-//                     className="mt-2"
-//                   >
-//                     <Button variant="outline">
-//                       <Download className="w-4 h-4 mr-2" />
-//                       Download PDF to view
-//                     </Button>
-//                   </a>
-//                 </div>
-//               </object>
-//             ) : (
-//               <div className="flex items-center justify-center h-full text-muted-foreground">
-//                 <Loader2 className="w-8 h-8 animate-spin" />
-//                 <span className="ml-2">Loading preview...</span>
-//               </div>
-//             )}
-//           </div>
-//         </DialogContent>
-//       </Dialog>
-
 
 //       {/* Professional Background Check Modal */}
 // <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
 //   <DialogContent className="max-w-md mx-auto p-0 overflow-hidden bg-white rounded-2xl shadow-2xl border-0">
 //     <div className="relative">
+//       {/* Animated background gradient */}
 //       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 opacity-60"></div>
       
+//       {/* Header with icon */}
 //       <div className="relative px-8 pt-8 pb-6 text-center">
 //         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-lg ring-8 ring-blue-50 mb-4">
 //           <Shield className="w-8 h-8 text-blue-600" />
@@ -4926,8 +4547,10 @@ export default OfferWorkflowManager;
 //         <p className="text-sm text-gray-600">Comprehensive candidate screening in progress</p>
 //       </div>
 
+//       {/* Content Area */}
 //       <div className="relative px-8 pb-8 min-h-[200px]">
 //         {!bgCheckResult ? (
+//           /* Loading State */
 //           <div className="text-center space-y-6">
 //             <div className="relative">
 //               <div className="inline-flex items-center justify-center">
@@ -4944,6 +4567,7 @@ export default OfferWorkflowManager;
 //                 <p className="text-base font-medium text-gray-700">Running comprehensive checks...</p>
 //               </div>
               
+//               {/* Progress indicators */}
 //               <div className="space-y-2">
 //                 <div className="flex justify-between text-xs text-gray-500">
 //                   <span>Verifying identity</span>
@@ -4967,7 +4591,9 @@ export default OfferWorkflowManager;
 //             <p className="text-sm text-gray-500">This may take a few moments...</p>
 //           </div>
 //         ) : (
+//           /* Result State */
 //           <div className="text-center space-y-6 animate-in fade-in-50 duration-500">
+//             {/* Status Icon with gradient background */}
 //             <div className="relative">
 //               <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br ${
 //                 bgCheckResult.status === 'completed' || bgCheckResult.status === 'not_required' 
@@ -4993,6 +4619,7 @@ export default OfferWorkflowManager;
 //               )}
 //             </div>
 
+//             {/* Status Badge */}
 //             <div className="space-y-2">
 //               <Badge 
 //                 className={`text-lg px-4 py-2 rounded-full font-semibold ${
@@ -5007,6 +4634,7 @@ export default OfferWorkflowManager;
 //               </Badge>
 //             </div>
 
+//             {/* Remarks */}
 //             <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
 //               <p className="text-xs uppercase tracking-wider text-gray-500 font-medium mb-2">
 //                 Verification Details
@@ -5016,6 +4644,7 @@ export default OfferWorkflowManager;
 //               </p>
 //             </div>
 
+//             {/* Action Button */}
 //             <Button 
 //               onClick={() => setShowResultDialog(false)}
 //               className={`w-full rounded-xl py-3 font-semibold transition-all duration-200 transform hover:scale-105 ${
@@ -5035,17 +4664,6 @@ export default OfferWorkflowManager;
 //   </DialogContent>
 // </Dialog>
 
-//  {selectedWorkflow && (
-//         <HRApprovalDialog
-//           open={showHrDialog}
-//           onOpenChange={setShowHrDialog}
-//           workflow={selectedWorkflow}
-//           onApprove={approveOffer}
-//           onReject={rejectOffer}
-//           onRevision={() => console.log("Revision requested")}
-//         />
-//       )}
-
 //     </div>
 //   );
 // };
@@ -5053,4 +4671,3 @@ export default OfferWorkflowManager;
 
 
 // export default OfferWorkflowManager;
-
