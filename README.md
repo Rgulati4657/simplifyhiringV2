@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# Welcome to your SimplifyHiringV2 project
 
 ## Project info
 
